@@ -7,8 +7,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import require_auth
-from app.models import CompanyCreate
-from app.invoice_service import create_company, get_company, update_company
+from app.models import CompanyCreate, FinancialSummaryOut
+from app.invoice_service import (
+    create_company,
+    get_company,
+    update_company,
+    get_financial_summary,
+)
 
 router = APIRouter(prefix="/api/companies", tags=["companies"])
 
@@ -46,3 +51,14 @@ def update_my_company(
         raise HTTPException(status_code=404, detail="Company not found.")
     updated = update_company(existing["id"], body.model_dump(exclude_unset=True))
     return {"company": updated}
+
+
+@router.get("/financial-summary", response_model=FinancialSummaryOut)
+def get_company_financial_summary(claims: dict[str, Any] = Depends(require_auth)):
+    user_id = claims.get("sub", "")
+    company = get_company(user_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found.")
+
+    summary = get_financial_summary(company["id"])
+    return summary

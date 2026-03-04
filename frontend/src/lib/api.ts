@@ -10,9 +10,14 @@ export async function apiFetch(
   token?: string | null,
 ) {
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
+
+  // Only set Content-Type to JSON if the body is NOT FormData.
+  // FormData needs the browser to auto-set multipart/form-data with the boundary.
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;

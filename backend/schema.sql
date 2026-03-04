@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS user_companies (
   address TEXT,
   business_reg TEXT,
   logo_url TEXT,
+  base_currency TEXT DEFAULT 'MYR',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -49,6 +50,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   month TEXT NOT NULL,
   status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid', 'partially_paid')),
   total_amount DECIMAL(12,2) DEFAULT 0,
+  currency TEXT DEFAULT 'MYR',
+  exchange_rate DECIMAL(12,6) DEFAULT 1.0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -97,6 +100,8 @@ CREATE TABLE IF NOT EXISTS payments (
   date DATE NOT NULL,
   method TEXT,
   notes TEXT,
+  currency TEXT DEFAULT 'MYR',
+  exchange_rate DECIMAL(12,6) DEFAULT 1.0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

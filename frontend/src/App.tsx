@@ -8,6 +8,7 @@ import ClientsPage from "./pages/ClientsPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import WhatsAppPage from "./pages/WhatsAppPage";
 import SettingsPage from "./pages/SettingsPage";
+import ReceiptScanPage from "./pages/ReceiptScanPage";
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="clients" element={<ClientsPage />} />
         <Route path="payments" element={<PaymentsPage />} />
+        <Route path="scan-receipt" element={<ReceiptScanPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

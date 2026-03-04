@@ -12,6 +12,7 @@ export default function SettingsPage() {
     address: "",
     business_reg: "",
     logo_url: "",
+    base_currency: "MYR",
   });
   const [hasCompany, setHasCompany] = useState(false);
 
@@ -29,6 +30,7 @@ export default function SettingsPage() {
           address: res.company.address || "",
           business_reg: res.company.business_reg || "",
           logo_url: res.company.logo_url || "",
+          base_currency: res.company.base_currency || "MYR",
         });
         setHasCompany(true);
       }
@@ -128,6 +130,24 @@ export default function SettingsPage() {
                 value={form.logo_url}
                 onChange={(e) => setForm({ ...form, logo_url: e.target.value })}
               />
+            </div>
+            <div className="form-field full-width">
+              <label>Company Base Currency</label>
+              <select
+                value={form.base_currency}
+                onChange={(e) => setForm({ ...form, base_currency: e.target.value })}
+              >
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+                <option value="MYR">MYR (RM)</option>
+                <option value="SGD">SGD (S$)</option>
+                <option value="IDR">IDR (Rp)</option>
+                <option value="PHP">PHP (₱)</option>
+                <option value="THB">THB (฿)</option>
+                <option value="VND">VND (₫)</option>
+                <option value="AED">AED</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">This defines how the dashboard calculates your total net values.</p>
             </div>
           </div>
 

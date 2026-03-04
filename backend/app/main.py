@@ -22,6 +22,7 @@ from app.routes.clients import router as clients_router
 from app.routes.invoices import router as invoices_router
 from app.routes.payments import router as payments_router
 from app.routes.whatsapp import router as whatsapp_router
+from app.routes.currency import router as currency_router
 
 app = FastAPI(
     title="CtrlZ-The-ADCB API",
@@ -44,6 +45,7 @@ app.include_router(clients_router)
 app.include_router(invoices_router)
 app.include_router(payments_router)
 app.include_router(whatsapp_router)
+app.include_router(currency_router)
 
 
 # ──────────────────────────────────────

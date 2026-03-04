@@ -61,8 +61,11 @@ def update_existing_client(
     body: ClientCreate,
     claims: dict[str, Any] = Depends(require_auth),
 ):
-    _ensure_company(claims)
-    updated = update_client(client_id, body.model_dump(exclude_unset=True))
+    company_id = _ensure_company(claims)
+    data = body.model_dump(exclude_unset=True)
+    # Always re-inject the correct company_id from auth to prevent empty-string UUID errors
+    data["company_id"] = company_id
+    updated = update_client(client_id, data)
     return {"client": updated}
 
 

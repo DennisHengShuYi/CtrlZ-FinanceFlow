@@ -81,6 +81,16 @@ def update_client(client_id: str, data: dict) -> dict:
 
 
 def delete_client(client_id: str) -> bool:
+    # Delete child invoice_items via invoices first
+    inv_res = supabase.table("invoices").select("id").eq("client_id", client_id).execute()
+    invoice_ids = [inv["id"] for inv in (inv_res.data or [])]
+    if invoice_ids:
+        for inv_id in invoice_ids:
+            supabase.table("invoice_items").delete().eq("invoice_id", inv_id).execute()
+        supabase.table("invoices").delete().in_("id", invoice_ids).execute()
+    # Delete payments
+    supabase.table("payments").delete().eq("client_id", client_id).execute()
+    # Delete client
     supabase.table("clients").delete().eq("id", client_id).execute()
     return True
 
@@ -97,6 +107,8 @@ def create_invoice(invoice_data: dict, items: list[dict]) -> dict:
         "invoice_number": invoice_data["invoice_number"],
         "date": str(invoice_data["date"]),
         "month": invoice_data["month"],
+        "currency": invoice_data.get("currency", "MYR"),
+        "exchange_rate": float(invoice_data.get("exchange_rate", 1.0)),
         "total_amount": float(total),
     }
 
@@ -176,6 +188,8 @@ def update_invoice_status(invoice_id: str, status: str) -> dict:
 
 
 def delete_invoice(invoice_id: str) -> bool:
+    # Delete child items first to avoid FK constraint errors
+    supabase.table("invoice_items").delete().eq("invoice_id", invoice_id).execute()
     supabase.table("invoices").delete().eq("id", invoice_id).execute()
     return True
 
@@ -190,6 +204,8 @@ def create_payment(data: dict) -> dict:
         "date": str(data["date"]),
         "method": data.get("method"),
         "notes": data.get("notes"),
+        "currency": data.get("currency", "MYR"),
+        "exchange_rate": float(data.get("exchange_rate", 1.0)),
     }
     result = supabase.table("payments").insert(payload).execute()
     return result.data[0] if result.data else {}
@@ -216,6 +232,11 @@ def get_payments(company_id: str) -> list[dict]:
         p["client_name"] = client_map.get(p["client_id"], "Unknown")
 
     return payments
+
+
+def get_payment(payment_id: str) -> dict | None:
+    result = supabase.table("payments").select("*").eq("id", payment_id).execute()
+    return result.data[0] if result.data else None
 
 
 def delete_payment(payment_id: str) -> bool:
@@ -299,3 +320,121 @@ def get_pending_invoice(user_id: str) -> Optional[dict]:
 def delete_pending_invoice(pending_id: str) -> bool:
     supabase.table("pending_invoices").delete().eq("id", pending_id).execute()
     return True
+
+
+# ═══════════════════════════════════════════
+# Receipt Matching & Financial Summary
+# ═══════════════════════════════════════════
+def match_receipt_to_invoice(company_id: str, extracted_data: dict) -> list[dict]:
+    amount = extracted_data.get("amount")
+    ref = extracted_data.get("reference_number")
+    receipt_currency = extracted_data.get("currency", "MYR")
+
+    query = (
+        supabase.table("invoices")
+        .select("*, clients!inner(company_id, name)")
+        .eq("clients.company_id", company_id)
+        .in_("status", ["unpaid", "partially_paid"])
+    )
+    result = query.execute()
+    invoices = result.data
+
+    matches = []
+    for inv in invoices:
+        match_score = 0
+
+        # Direct amount match
+        if amount and Decimal(str(inv["total_amount"])) == Decimal(str(amount)):
+            match_score += 1
+
+        # Cross-currency match: convert receipt amount to base, compare with invoice base
+        if amount and match_score == 0:
+            inv_base = Decimal(str(inv["total_amount"])) * Decimal(str(inv.get("exchange_rate", 1.0)))
+            # If receipt currency differs, try matching base-equivalent amounts (within 2% tolerance)
+            if receipt_currency and receipt_currency != inv.get("currency"):
+                try:
+                    tolerance = inv_base * Decimal("0.02")
+                    receipt_dec = Decimal(str(amount))
+                    if abs(receipt_dec - inv_base) <= tolerance:
+                        match_score += 1
+                except Exception:
+                    pass
+
+        # Reference number match
+        if ref and str(ref).lower() in inv["invoice_number"].lower():
+            match_score += 2
+
+        if match_score > 0:
+            inv["match_score"] = match_score
+            inv["client_name"] = inv.get("clients", {}).get("name", "Unknown")
+            matches.append(inv)
+
+    matches.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+    return matches
+
+
+def process_payment_verification(company_id: str, payment_data: dict) -> dict:
+    payment = create_payment(payment_data)
+    update_invoice_status(payment_data["invoice_id"], "paid")
+    return payment
+
+
+def get_financial_summary(company_id: str) -> dict:
+    clients = get_clients(company_id)
+    company_res = supabase.table("user_companies").select("base_currency").eq("id", company_id).execute()
+    base_currency = company_res.data[0].get("base_currency", "MYR") if company_res.data else "MYR"
+
+    if not clients:
+        return {
+            "cash_on_hand": 0,
+            "total_assets": 0,
+            "available_for_expenses": 0,
+            "base_currency": base_currency,
+            "client_pending": [],
+            "supplier_pending": [],
+        }
+
+    # Fetch all payments related to this company through clients
+    payments_res = (
+        supabase.table("payments")
+        .select("*, clients!inner(type, company_id, name)")
+        .eq("clients.company_id", company_id)
+        .execute()
+    )
+    payments = payments_res.data or []
+
+    cash_in = sum(
+        (p["amount"] * p["exchange_rate"]) for p in payments if p["clients"]["type"] in ("customer", None)
+    )
+    cash_out = sum((p["amount"] * p["exchange_rate"]) for p in payments if p["clients"]["type"] == "supplier")
+    cash_on_hand = cash_in - cash_out
+
+    # Fetch all invoices related to this company through clients
+    invoices_res = (
+        supabase.table("invoices")
+        .select("*, clients!inner(type, company_id, name)")
+        .eq("clients.company_id", company_id)
+        .in_("status", ["unpaid", "partially_paid"])
+        .execute()
+    )
+    invoices = invoices_res.data or []
+
+    client_pending = [
+        inv for inv in invoices if inv["clients"]["type"] in ("customer", None)
+    ]
+    supplier_pending = [inv for inv in invoices if inv["clients"]["type"] == "supplier"]
+
+    accounts_receivable = sum(Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0))) for inv in client_pending)
+    accounts_payable = sum(Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0))) for inv in supplier_pending)
+
+    total_assets = cash_on_hand + accounts_receivable
+    available_for_expenses = cash_on_hand - accounts_payable
+
+    return {
+        "cash_on_hand": float(cash_on_hand),
+        "total_assets": float(total_assets),
+        "available_for_expenses": float(available_for_expenses),
+        "base_currency": base_currency,
+        "client_pending": client_pending,
+        "supplier_pending": supplier_pending,
+    }

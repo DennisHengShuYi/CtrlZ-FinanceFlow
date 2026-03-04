@@ -1,15 +1,7 @@
 import { useState, useEffect } from "react";
 import { useApiFetch } from "../hooks/useApiFetch";
-import {
-  FileText,
-  Plus,
-  Download,
-  Trash2,
-  X,
-  CheckCircle2,
-  Clock,
-  AlertCircle,
-} from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
+import { FileText, Plus, Download, Trash2, X, Eye } from "lucide-react";
 
 interface InvoiceItem {
   description: string;
@@ -26,6 +18,7 @@ interface Invoice {
   month: string;
   status: string;
   total_amount: number;
+  currency?: string;
   items?: InvoiceItem[];
 }
 
@@ -34,30 +27,14 @@ interface Client {
   name: string;
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const config: Record<
-    string,
-    { icon: React.ElementType; cls: string; label: string }
-  > = {
-    paid: { icon: CheckCircle2, cls: "badge-success", label: "Paid" },
-    unpaid: { icon: Clock, cls: "badge-warning", label: "Unpaid" },
-    partially_paid: { icon: AlertCircle, cls: "badge-info", label: "Partial" },
-  };
-  const c = config[status] || config.unpaid;
-  return (
-    <span className={`status-badge ${c.cls}`}>
-      <c.icon size={12} />
-      {c.label}
-    </span>
-  );
-}
-
 export default function InvoicesPage() {
+  const { getToken } = useAuth();
   const apiFetch = useApiFetch();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState("MYR");
 
   // Form state
   const [form, setForm] = useState({
@@ -65,6 +42,8 @@ export default function InvoicesPage() {
     invoice_number: "",
     date: new Date().toISOString().split("T")[0],
     month: new Date().toISOString().slice(0, 7),
+    currency: "MYR",
+    exchange_rate: 1.0,
   });
   const [items, setItems] = useState<InvoiceItem[]>([
     { description: "", price: 0, quantity: 1 },
@@ -77,17 +56,42 @@ export default function InvoicesPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [invRes, cliRes] = await Promise.all([
+      const [invRes, cliRes, compRes] = await Promise.all([
         apiFetch("/api/invoices/").catch(() => ({ invoices: [] })),
         apiFetch("/api/clients/").catch(() => ({ clients: [] })),
+        apiFetch("/api/companies/me").catch(() => ({ company: null })),
       ]);
       setInvoices(invRes?.invoices || []);
       setClients(cliRes?.clients || []);
+      if (compRes?.company?.base_currency) {
+        setBaseCurrency(compRes.company.base_currency);
+      }
     } catch {
       /* empty */
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    let active = true;
+    async function updateRate() {
+      if (form.currency === baseCurrency) {
+        setForm(f => ({ ...f, exchange_rate: 1.0 }));
+        return;
+      }
+      try {
+        const res = await fetch(`http://localhost:8000/api/currency/rate?from=${form.currency}&to=${baseCurrency}`);
+        const data = await res.json();
+        if (active && data.rate) {
+          setForm(f => ({ ...f, exchange_rate: data.rate }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    updateRate();
+    return () => { active = false; };
+  }, [form.currency, baseCurrency]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -102,6 +106,8 @@ export default function InvoicesPage() {
         invoice_number: "",
         date: new Date().toISOString().split("T")[0],
         month: new Date().toISOString().slice(0, 7),
+        currency: "MYR",
+        exchange_rate: 1.0,
       });
       setItems([{ description: "", price: 0, quantity: 1 }]);
       loadData();
@@ -125,7 +131,7 @@ export default function InvoicesPage() {
   }
 
   async function handleDownloadPdf(id: string, number: string) {
-    const token = await (window as any).__clerk_token_getter?.();
+    const token = await getToken();
     const res = await fetch(`http://localhost:8000/api/invoices/${id}/pdf`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -137,6 +143,17 @@ export default function InvoicesPage() {
     a.download = `invoice_${number}.pdf`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleViewPdf(id: string) {
+    const token = await getToken();
+    const res = await fetch(`http://localhost:8000/api/invoices/${id}/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return alert("Failed to open PDF");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
   }
 
   function addItem() {
@@ -156,9 +173,9 @@ export default function InvoicesPage() {
       items.map((item, i) =>
         i === idx
           ? {
-              ...item,
-              [field]: field === "description" ? value : Number(value),
-            }
+            ...item,
+            [field]: field === "description" ? value : Number(value),
+          }
           : item,
       ),
     );
@@ -211,11 +228,10 @@ export default function InvoicesPage() {
                   <td>{inv.client_name || "—"}</td>
                   <td>{inv.date}</td>
                   <td className="cell-amount">
-                    $
-                    {parseFloat(String(inv.total_amount)).toLocaleString(
-                      "en-US",
-                      { minimumFractionDigits: 2 },
-                    )}
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: inv.currency || "USD",
+                    }).format(parseFloat(String(inv.total_amount)))}
                   </td>
                   <td>
                     <select
@@ -234,10 +250,15 @@ export default function InvoicesPage() {
                     <div className="action-buttons">
                       <button
                         className="btn-icon"
+                        title="View PDF"
+                        onClick={() => handleViewPdf(inv.id)}
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        className="btn-icon"
                         title="Download PDF"
-                        onClick={() =>
-                          handleDownloadPdf(inv.id, inv.invoice_number)
-                        }
+                        onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
                       >
                         <Download size={14} />
                       </button>
@@ -312,10 +333,39 @@ export default function InvoicesPage() {
                     required
                     placeholder="2024-03"
                     value={form.month}
-                    onChange={(e) =>
-                      setForm({ ...form, month: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, month: e.target.value })}
                   />
+                </div>
+                <div className="form-field">
+                  <label>Currency</label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="MYR">MYR (RM)</option>
+                    <option value="SGD">SGD (S$)</option>
+                    <option value="IDR">IDR (Rp)</option>
+                    <option value="PHP">PHP (₱)</option>
+                    <option value="THB">THB (฿)</option>
+                    <option value="VND">VND (₫)</option>
+                    <option value="AED">AED</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Exchange Rate</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    required
+                    value={form.exchange_rate}
+                    onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })}
+                  />
+                  {form.currency !== baseCurrency && (
+                    <p className="text-xs text-gray-500 mt-1">Est. base value: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalAmount * form.exchange_rate)}</p>
+                  )}
                 </div>
               </div>
 
@@ -376,10 +426,10 @@ export default function InvoicesPage() {
                 <div className="line-item-total">
                   <span>Total:</span>
                   <span className="cell-amount">
-                    $
-                    {totalAmount.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {new Intl.NumberFormat("en-US", {
+                      style: "currency",
+                      currency: form.currency || "USD",
+                    }).format(totalAmount)}
                   </span>
                 </div>
               </div>

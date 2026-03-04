@@ -68,12 +68,12 @@ export default function ClientsPage() {
       if (editId) {
         await apiFetch(`/api/clients/${editId}`, {
           method: "PUT",
-          body: JSON.stringify({ ...form, company_id: "" }),
+          body: JSON.stringify(form),
         });
       } else {
         await apiFetch("/api/clients/", {
           method: "POST",
-          body: JSON.stringify({ ...form, company_id: "" }),
+          body: JSON.stringify(form),
         });
       }
       setShowModal(false);

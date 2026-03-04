@@ -7,6 +7,7 @@ import {
   CreditCard,
   Settings,
   MessageSquare,
+  Scan,
   ChevronRight,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { to: "/dashboard/invoices", icon: FileText, label: "Invoices" },
   { to: "/dashboard/clients", icon: Users, label: "Clients" },
   { to: "/dashboard/payments", icon: CreditCard, label: "Payments" },
+  { to: "/dashboard/scan-receipt", icon: Scan, label: "Scan Receipt" },
   { to: "/dashboard/whatsapp", icon: MessageSquare, label: "WhatsApp" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];

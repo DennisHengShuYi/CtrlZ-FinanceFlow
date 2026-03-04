@@ -10,6 +10,8 @@ interface Payment {
   date: string;
   method: string | null;
   notes: string | null;
+  currency?: string;
+  exchange_rate?: string | number;
   created_at: string;
 }
 
@@ -24,12 +26,15 @@ export default function PaymentsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState("MYR");
   const [form, setForm] = useState({
     client_id: "",
     amount: "",
     date: new Date().toISOString().split("T")[0],
     method: "",
     notes: "",
+    currency: "MYR",
+    exchange_rate: 1.0,
   });
 
   useEffect(() => {
@@ -39,17 +44,42 @@ export default function PaymentsPage() {
   async function loadData() {
     setLoading(true);
     try {
-      const [payRes, cliRes] = await Promise.all([
+      const [payRes, cliRes, compRes] = await Promise.all([
         apiFetch("/api/payments/").catch(() => ({ payments: [] })),
         apiFetch("/api/clients/").catch(() => ({ clients: [] })),
+        apiFetch("/api/companies/me").catch(() => ({ company: null })),
       ]);
       setPayments(payRes?.payments || []);
       setClients(cliRes?.clients || []);
+      if (compRes?.company?.base_currency) {
+        setBaseCurrency(compRes.company.base_currency);
+      }
     } catch {
       /* empty */
     }
     setLoading(false);
   }
+
+  useEffect(() => {
+    let active = true;
+    async function updateRate() {
+      if (form.currency === baseCurrency) {
+        setForm(f => ({ ...f, exchange_rate: 1.0 }));
+        return;
+      }
+      try {
+        const res = await fetch(`http://localhost:8000/api/currency/rate?from=${form.currency}&to=${baseCurrency}`);
+        const data = await res.json();
+        if (active && data.rate) {
+          setForm(f => ({ ...f, exchange_rate: data.rate }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    updateRate();
+    return () => { active = false; };
+  }, [form.currency, baseCurrency]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -68,6 +98,8 @@ export default function PaymentsPage() {
         date: new Date().toISOString().split("T")[0],
         method: "",
         notes: "",
+        currency: "MYR",
+        exchange_rate: 1.0,
       });
       loadData();
     } catch (err: Error | any) {
@@ -82,7 +114,7 @@ export default function PaymentsPage() {
   }
 
   const totalPaid = payments.reduce(
-    (sum, p) => sum + parseFloat(String(p.amount || 0)),
+    (sum, p) => sum + parseFloat(String(p.amount || 0)) * parseFloat(String(p.exchange_rate || 1)),
     0,
   );
 
@@ -106,9 +138,9 @@ export default function PaymentsPage() {
           <span className="summary-value">{payments.length}</span>
         </div>
         <div className="summary-card">
-          <span className="summary-label">Total Collected</span>
+          <span className="summary-label">Total Collected (Est. Base Value)</span>
           <span className="summary-value">
-            ${totalPaid.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalPaid)}
           </span>
         </div>
       </div>
@@ -142,10 +174,7 @@ export default function PaymentsPage() {
                 <tr key={p.id} style={{ animationDelay: `${i * 40}ms` }}>
                   <td className="cell-bold">{p.client_name || "—"}</td>
                   <td className="cell-amount cell-positive">
-                    $
-                    {parseFloat(String(p.amount)).toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                    })}
+                    {new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency || "USD" }).format(parseFloat(String(p.amount)))}
                   </td>
                   <td>{p.date}</td>
                   <td>{p.method || "—"}</td>
@@ -222,9 +251,7 @@ export default function PaymentsPage() {
                   <label>Method</label>
                   <select
                     value={form.method}
-                    onChange={(e) =>
-                      setForm({ ...form, method: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, method: e.target.value })}
                   >
                     <option value="">Select method…</option>
                     <option value="bank_transfer">Bank Transfer</option>
@@ -233,6 +260,37 @@ export default function PaymentsPage() {
                     <option value="card">Card</option>
                     <option value="other">Other</option>
                   </select>
+                </div>
+                <div className="form-field">
+                  <label>Currency</label>
+                  <select
+                    value={form.currency}
+                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="MYR">MYR (RM)</option>
+                    <option value="SGD">SGD (S$)</option>
+                    <option value="IDR">IDR (Rp)</option>
+                    <option value="PHP">PHP (₱)</option>
+                    <option value="THB">THB (฿)</option>
+                    <option value="VND">VND (₫)</option>
+                    <option value="AED">AED</option>
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Exchange Rate</label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    min="0"
+                    required
+                    value={form.exchange_rate}
+                    onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })}
+                  />
+                  {form.currency !== baseCurrency && (
+                    <p className="text-xs text-gray-500 mt-1">Est. base value: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format((parseFloat(form.amount) || 0) * (form.exchange_rate as number))}</p>
+                  )}
                 </div>
                 <div className="form-field full-width">
                   <label>Notes</label>
