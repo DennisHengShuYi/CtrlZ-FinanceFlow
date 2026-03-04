@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.auth import require_auth
 from app.config import PORT
+from app.routers import whatsapp 
+from app.routers import instagram
 
 app = FastAPI(
     title="CtrlZ-The-ADCB API",
@@ -44,6 +46,11 @@ def protected_route(claims: dict[str, Any] = Depends(require_auth)):
     user_id = claims.get("sub", "unknown")
     return {"message": f"Authenticated! Your userId is: {user_id}"}
 
+# ──────────────────────────────────────
+# Include Pillar 1 routers
+# ──────────────────────────────────────
+app.include_router(whatsapp.router)   # <-- add this line
+app.include_router(instagram.router)
 
 # ──────────────────────────────────────
 # Run with: python -m app.main
