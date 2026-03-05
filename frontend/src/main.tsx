@@ -17,5 +17,9 @@ createRoot(document.getElementById("root")!).render(
         <App />
       </BrowserRouter>
     </ClerkProvider>
+<<<<<<< HEAD
   </StrictMode>
+=======
+  </StrictMode>,
+>>>>>>> origin/minhan
 );

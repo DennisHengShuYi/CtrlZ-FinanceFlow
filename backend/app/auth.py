@@ -8,7 +8,11 @@ from typing import Any
 
 import httpx
 import jwt
+<<<<<<< HEAD
 from fastapi import Depends, HTTPException, Request, status
+=======
+from fastapi import HTTPException, Request, status
+>>>>>>> origin/minhan
 
 from app.config import CLERK_JWKS_URL
 
