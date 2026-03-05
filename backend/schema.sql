@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS invoices (
   invoice_number TEXT NOT NULL,
   date DATE NOT NULL,
   month TEXT NOT NULL,
+  type TEXT DEFAULT 'issuing' CHECK (type IN ('issuing', 'receiving')),
+  ai_auto_paid_reason TEXT,
   status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid', 'partially_paid')),
   total_amount DECIMAL(12,2) DEFAULT 0,
   currency TEXT DEFAULT 'MYR',

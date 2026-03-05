@@ -19,6 +19,8 @@ interface Invoice {
   status: string;
   total_amount: number;
   currency?: string;
+  type?: "issuing" | "receiving";
+  ai_auto_paid_reason?: string;
   items?: InvoiceItem[];
 }
 
@@ -42,6 +44,7 @@ export default function InvoicesPage() {
     invoice_number: "",
     date: new Date().toISOString().split("T")[0],
     month: new Date().toISOString().slice(0, 7),
+    type: "issuing",
     currency: "MYR",
     exchange_rate: 1.0,
   });
@@ -106,6 +109,7 @@ export default function InvoicesPage() {
         invoice_number: "",
         date: new Date().toISOString().split("T")[0],
         month: new Date().toISOString().slice(0, 7),
+        type: activeTab,
         currency: "MYR",
         exchange_rate: 1.0,
       });
@@ -183,6 +187,13 @@ export default function InvoicesPage() {
 
   const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
+  const [activeTab, setActiveTab] = useState<"issuing" | "receiving">("issuing");
+
+  // Filter invoices to match the current tab
+  const filteredInvoices = invoices.filter(
+    (inv) => (inv.type || "issuing") === activeTab
+  );
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -190,9 +201,28 @@ export default function InvoicesPage() {
           <h1 className="page-title">Invoices</h1>
           <p className="page-subtitle">Manage and track all your invoices.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <button className="btn-primary" onClick={() => {
+          setForm({ ...form, type: activeTab });
+          setShowModal(true);
+        }}>
           <Plus size={16} />
           New Invoice
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex space-x-4 mb-6 border-b border-gray-200">
+        <button
+          className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === "issuing" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-black hover:border-gray-300"}`}
+          onClick={() => setActiveTab("issuing")}
+        >
+          Issuing (Receivables)
+        </button>
+        <button
+          className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === "receiving" ? "border-black text-black" : "border-transparent text-gray-500 hover:text-black hover:border-gray-300"}`}
+          onClick={() => setActiveTab("receiving")}
+        >
+          Receiving (Payables)
         </button>
       </div>
 
@@ -203,7 +233,7 @@ export default function InvoicesPage() {
             <div className="spinner" />
             <p>Loading invoices…</p>
           </div>
-        ) : invoices.length === 0 ? (
+        ) : filteredInvoices.length === 0 ? (
           <div className="table-empty">
             <FileText size={40} strokeWidth={1} className="empty-icon" />
             <p>No invoices yet</p>
@@ -222,7 +252,7 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv, i) => (
+              {filteredInvoices.map((inv, i) => (
                 <tr key={inv.id} style={{ animationDelay: `${i * 40}ms` }}>
                   <td className="cell-mono">{inv.invoice_number}</td>
                   <td>{inv.client_name || "—"}</td>
@@ -234,17 +264,27 @@ export default function InvoicesPage() {
                     }).format(parseFloat(String(inv.total_amount)))}
                   </td>
                   <td>
-                    <select
-                      className="status-select"
-                      value={inv.status}
-                      onChange={(e) =>
-                        handleStatusChange(inv.id, e.target.value)
-                      }
-                    >
-                      <option value="unpaid">Unpaid</option>
-                      <option value="paid">Paid</option>
-                      <option value="partially_paid">Partial</option>
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="status-select"
+                        value={inv.status}
+                        onChange={(e) =>
+                          handleStatusChange(inv.id, e.target.value)
+                        }
+                      >
+                        <option value="unpaid">Unpaid</option>
+                        <option value="paid">Paid</option>
+                        <option value="partially_paid">Partial</option>
+                      </select>
+                      {inv.ai_auto_paid_reason && (
+                        <span
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 cursor-help"
+                          title={inv.ai_auto_paid_reason}
+                        >
+                          🤖 AI Auto-Paid
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <div className="action-buttons">
@@ -305,6 +345,19 @@ export default function InvoicesPage() {
                         {c.name}
                       </option>
                     ))}
+                  </select>
+                </div>
+                <div className="form-field">
+                  <label>Type</label>
+                  <select
+                    required
+                    value={form.type}
+                    onChange={(e) =>
+                      setForm({ ...form, type: e.target.value as "issuing" | "receiving" })
+                    }
+                  >
+                    <option value="issuing">Issuing (Receivable)</option>
+                    <option value="receiving">Receiving (Payable Bill)</option>
                   </select>
                 </div>
                 <div className="form-field">

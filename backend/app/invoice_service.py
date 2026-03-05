@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Optional
 
 from app.supabase_client import supabase
+import asyncio
 
 
 # ═══════════════════════════════════════════
@@ -108,6 +109,7 @@ def create_invoice(invoice_data: dict, items: list[dict]) -> dict:
         "date": str(invoice_data["date"]),
         "month": invoice_data["month"],
         "currency": invoice_data.get("currency", "MYR"),
+        "type": invoice_data.get("type", "issuing"),
         "exchange_rate": float(invoice_data.get("exchange_rate", 1.0)),
         "total_amount": float(total),
     }
@@ -124,6 +126,13 @@ def create_invoice(invoice_data: dict, items: list[dict]) -> dict:
             "quantity": item["quantity"],
         }
         supabase.table("invoice_items").insert(item_payload).execute()
+
+    if invoice_data.get("type") == "receiving":
+        client = get_client(invoice["client_id"])
+        if client:
+            company_id = client["company_id"]
+            # Trigger the auto-evaluation process in the background
+            asyncio.create_task(evaluate_auto_payment(invoice["id"], invoice["client_id"], company_id))
 
     return get_invoice(invoice["id"])
 
@@ -438,3 +447,62 @@ def get_financial_summary(company_id: str) -> dict:
         "client_pending": client_pending,
         "supplier_pending": supplier_pending,
     }
+
+
+async def evaluate_auto_payment(invoice_id: str, client_id: str, company_id: str) -> None:
+    from app.ai_service import evaluate_supplier_bill
+    from datetime import date
+
+    # Get the invoice data
+    invoice = get_invoice(invoice_id)
+    if not invoice or invoice.get("type") != "receiving":
+        return
+
+    # Get financial summary
+    summary = get_financial_summary(company_id)
+    cash_on_hand = summary["cash_on_hand"]
+    available_for_expenses = summary["available_for_expenses"]
+    base_currency = summary["base_currency"]
+
+    inv_amount = float(invoice["total_amount"])
+    inv_currency = invoice["currency"]
+    inv_desc = "Auto-evaluating newly received invoice"
+    supplier_name = invoice.get("client_name", "Supplier")
+    exchange_rate = float(invoice.get("exchange_rate", 1.0))
+    inv_amount_base = inv_amount * exchange_rate
+
+    # If the invoice total amount is greater than cash on hand, abort to prevent negative balances
+    if inv_amount_base > cash_on_hand:
+        print(f"Auto-payment aborted: insufficient cash for invoice {invoice_id}")
+        return
+        
+    ai_decision = await evaluate_supplier_bill(
+        amount=inv_amount,
+        currency=inv_currency,
+        description=inv_desc,
+        supplier_name=supplier_name,
+        cash_on_hand=cash_on_hand,
+        available_for_expenses=available_for_expenses,
+        base_currency=base_currency,
+    )
+
+    if ai_decision.get("approve"):
+        # Automatically call create_payment using invoice total
+        reason = ai_decision.get("reason", "Approved by AI based on cash flow.")
+        payment_payload = {
+            "invoice_id": invoice_id,
+            "client_id": client_id,
+            "amount": inv_amount,
+            "date": str(date.today()),
+            "method": "AI Auto-Pay",
+            "notes": f"🤖 Auto-paid by AI: {reason}",
+            "currency": inv_currency,
+            "exchange_rate": exchange_rate,
+        }
+        create_payment(payment_payload)
+        update_invoice_status(invoice_id, "paid")
+        supabase.table("invoices").update({"ai_auto_paid_reason": reason}).eq("id", invoice_id).execute()
+        print(f"Auto-payment triggered successfully for invoice {invoice_id}")
+    else:
+        print(f"Auto-payment rejected by AI for invoice {invoice_id}")
+

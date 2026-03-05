@@ -150,3 +150,46 @@ Return valid JSON exactly matching these keys. If a field is not found or ambigu
         return _extract_json(text)
     except Exception as e:
         return {"error": str(e)}
+
+
+async def evaluate_supplier_bill(
+    amount: float,
+    currency: str,
+    description: str,
+    supplier_name: str,
+    cash_on_hand: float,
+    available_for_expenses: float,
+    base_currency: str,
+) -> dict:
+    """
+    Ask Gemini if it's safe to auto-pay this supplier bill based on cash flow.
+    """
+    try:
+        import google.generativeai as genai
+
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("gemini-2.0-flash")
+
+        system_prompt = f"""You are a financial controller. 
+Analyze if it is appropriate to pay this incoming supplier invoice immediately. Consider cash flow preservation.
+
+Invoice Details:
+- Supplier Name: {supplier_name}
+- Total Amount: {amount} {currency}
+- Details: {description}
+
+Current Financial Health:
+- Cash On Hand: {cash_on_hand} {base_currency}
+- Available for Expenses: {available_for_expenses} {base_currency}
+
+Return a JSON object with exactly these keys:
+- "approve" (boolean): true if safe to pay now, false otherwise.
+- "reason" (string): A short explanation for your decision (max 1-2 sentences).
+Do not include markdown formatting.
+        """
+        response = model.generate_content([{"role": "user", "parts": [{"text": system_prompt}]}])
+        text = response.text.strip()
+        return _extract_json(text)
+    except Exception as e:
+        print(f"Error evaluating bill: {e}")
+        return {"approve": False, "reason": "Failed to invoke AI evaluation."}

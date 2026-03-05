@@ -57,6 +57,7 @@ class InvoiceCreate(BaseModel):
     invoice_number: str
     date: date
     month: str
+    type: str = Field("issuing", pattern="^(issuing|receiving)$")
     currency: str = "MYR"
     exchange_rate: Decimal = Decimal("1.0")
     items: list[InvoiceItemCreate]
@@ -80,11 +81,13 @@ class InvoiceOut(BaseModel):
     month: str
     status: str
     total_amount: Decimal
+    type: str = "issuing"
     currency: str = "MYR"
     exchange_rate: Decimal = Decimal("1.0")
     created_at: datetime
     items: list[InvoiceItemOut] = []
     client_name: Optional[str] = None
+    ai_auto_paid_reason: Optional[str] = None
 
 
 class InvoiceStatusUpdate(BaseModel):
