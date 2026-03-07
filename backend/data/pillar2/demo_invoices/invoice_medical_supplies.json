@@ -17,8 +17,8 @@
       "description": "Disposable nitrile gloves, powder-free, medical grade",
       "quantity": 1000,
       "unit": "boxes",
-      "unit_price": 15.00,
-      "amount": 15000.00,
+      "unit_price": 72.00,
+      "amount": 72000.00,
       "origin_country": "MY"
     },
     {
@@ -26,8 +26,8 @@
       "description": "Surgical face mask, 3-ply, 50 pcs per box",
       "quantity": 200,
       "unit": "boxes",
-      "unit_price": 8.00,
-      "amount": 1600.00,
+      "unit_price": 38.00,
+      "amount": 7600.00,
       "origin_country": "MY"
     },
     {
@@ -35,12 +35,12 @@
       "description": "Paracetamol tablets 500mg, 1000 tablets per bottle",
       "quantity": 50,
       "unit": "bottles",
-      "unit_price": 12.00,
-      "amount": 600.00,
+      "unit_price": 55.00,
+      "amount": 2750.00,
       "origin_country": "MY"
     }
   ],
-  "subtotal": 17200.00,
-  "currency": "USD",
+  "subtotal": 82350.00,
+  "currency": "MYR",
   "notes": "Medical supplies - urgent delivery"
 }

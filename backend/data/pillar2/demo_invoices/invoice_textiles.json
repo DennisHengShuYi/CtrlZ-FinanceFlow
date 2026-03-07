@@ -17,8 +17,8 @@
       "description": "Women's cotton blouse, short sleeve, size M",
       "quantity": 150,
       "unit": "pieces",
-      "unit_price": 18.00,
-      "amount": 2700.00,
+      "unit_price": 85.00,
+      "amount": 12750.00,
       "origin_country": "VN"
     },
     {
@@ -26,8 +26,8 @@
       "description": "Men's denim jeans, blue, 32 waist",
       "quantity": 100,
       "unit": "pieces",
-      "unit_price": 35.00,
-      "amount": 3500.00,
+      "unit_price": 165.00,
+      "amount": 16500.00,
       "origin_country": "VN"
     },
     {
@@ -35,12 +35,12 @@
       "description": "Polyester blanket, single size, grey",
       "quantity": 80,
       "unit": "pieces",
-      "unit_price": 22.00,
-      "amount": 1760.00,
+      "unit_price": 95.00,
+      "amount": 7600.00,
       "origin_country": "VN"
     }
   ],
-  "subtotal": 7960.00,
-  "currency": "USD",
+  "subtotal": 36850.00,
+  "currency": "MYR",
   "notes": "Spring collection 2025"
 }

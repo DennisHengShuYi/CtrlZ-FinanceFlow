@@ -14,33 +14,33 @@
   "line_items": [
     {
       "item_id": 1,
-      "description": "Palm sugar, organic, 1kg pack",
-      "quantity": 200,
+      "description": "Jasmine rice, white, milled, 25kg bag",
+      "quantity": 400,
       "unit": "kg",
-      "unit_price": 4.50,
-      "amount": 900.00,
-      "origin_country": "MY"
+      "unit_price": 4.20,
+      "amount": 1680.00,
+      "origin_country": "TH"
     },
     {
       "item_id": 2,
-      "description": "Instant coffee, 3-in-1, halal certified",
-      "quantity": 1000,
-      "unit": "boxes",
-      "unit_price": 12.00,
-      "amount": 12000.00,
+      "description": "Fresh durian, Musang King, whole fruit",
+      "quantity": 200,
+      "unit": "kg",
+      "unit_price": 45.00,
+      "amount": 9000.00,
       "origin_country": "MY"
     },
     {
       "item_id": 3,
-      "description": "Canned pineapple slices in syrup",
-      "quantity": 500,
-      "unit": "cans",
-      "unit_price": 2.80,
-      "amount": 1400.00,
+      "description": "Fresh pineapples, whole fruit",
+      "quantity": 150,
+      "unit": "kg",
+      "unit_price": 5.50,
+      "amount": 825.00,
       "origin_country": "MY"
     }
   ],
-  "subtotal": 14300.00,
-  "currency": "USD",
+  "subtotal": 11505.00,
+  "currency": "MYR",
   "notes": "FOB Port Klang"
 }

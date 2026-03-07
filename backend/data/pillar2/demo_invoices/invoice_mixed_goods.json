@@ -17,8 +17,8 @@
       "description": "Stainless steel kitchen knife set, 5 pieces",
       "quantity": 30,
       "unit": "sets",
-      "unit_price": 45.00,
-      "amount": 1350.00,
+      "unit_price": 210.00,
+      "amount": 6300.00,
       "origin_country": "CN"
     },
     {
@@ -26,8 +26,8 @@
       "description": "Ceramic coffee mug, 350ml, white",
       "quantity": 200,
       "unit": "pieces",
-      "unit_price": 5.00,
-      "amount": 1000.00,
+      "unit_price": 24.00,
+      "amount": 4800.00,
       "origin_country": "CN"
     },
     {
@@ -35,8 +35,8 @@
       "description": "Plastic storage container with lid, 2L",
       "quantity": 150,
       "unit": "pieces",
-      "unit_price": 4.50,
-      "amount": 675.00,
+      "unit_price": 22.00,
+      "amount": 3300.00,
       "origin_country": "TH"
     },
     {
@@ -44,12 +44,12 @@
       "description": "Wooden cutting board, bamboo, 30x20cm",
       "quantity": 80,
       "unit": "pieces",
-      "unit_price": 12.00,
-      "amount": 960.00,
+      "unit_price": 58.00,
+      "amount": 4640.00,
       "origin_country": "VN"
     }
   ],
-  "subtotal": 3985.00,
-  "currency": "USD",
+  "subtotal": 19040.00,
+  "currency": "MYR",
   "notes": "Mixed household goods"
 }
