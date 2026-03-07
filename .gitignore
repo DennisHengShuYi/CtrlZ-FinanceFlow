@@ -24,3 +24,6 @@ venv/
 
 # Cross-Project
 frontend/dist/
+
+# AHTN vector DB (generated, rebuild with build_ahtn_vector_db.py)
+backend/data/pillar2/ahtn_embeddings.npy

@@ -595,6 +595,233 @@ body,
   color: oklch(0.45 0.12 25);
 }
 
+/* HITL link on dashboard — secondary style */
+.hitl-link {
+  margin-left: 0.5rem;
+  background: transparent;
+  color: #000;
+  border: 1px solid oklch(0.92 0 0);
+}
+
+.hitl-link:hover {
+  background: oklch(0.97 0 0);
+}
+
+/* =====================================================
+   HITL REVIEW PAGE
+   ===================================================== */
+.hitl-review-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+}
+
+.hitl-refresh-btn {
+  padding: 0.5rem 1rem;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.hitl-refresh-btn:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.hitl-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.hitl-empty {
+  margin-top: 2rem;
+  padding: 2rem;
+  text-align: center;
+  color: oklch(0.44 0 0);
+}
+
+.hitl-empty-hint {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: oklch(0.55 0 0);
+}
+
+.hitl-queue {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hitl-card {
+  border: 1px solid oklch(0.92 0 0);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.hitl-card-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.875rem;
+  transition: background 0.15s ease;
+}
+
+.hitl-card-header:hover {
+  background: oklch(0.98 0 0);
+}
+
+.hitl-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.hitl-badge {
+  padding: 0.2rem 0.5rem;
+  background: oklch(0.75 0.15 45);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.hitl-badge-approved {
+  background: #16a349;
+}
+
+.hitl-source {
+  font-size: 0.75rem;
+  color: oklch(0.55 0 0);
+}
+
+.hitl-card-meta {
+  flex-shrink: 0;
+  color: oklch(0.5 0 0);
+  font-size: 0.8125rem;
+}
+
+.hitl-expand-icon {
+  flex-shrink: 0;
+  color: oklch(0.6 0 0);
+  font-size: 0.75rem;
+}
+
+.hitl-card-body {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid oklch(0.95 0 0);
+}
+
+.hitl-invoice-details {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: oklch(0.98 0 0);
+  border-radius: 8px;
+}
+
+.hitl-invoice-details h4,
+.hitl-line-items h4,
+.hitl-flags strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.hitl-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.hitl-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hitl-label {
+  font-size: 0.75rem;
+  color: oklch(0.5 0 0);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.hitl-address {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hitl-flags {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: oklch(0.97 0.02 25);
+  border-radius: 8px;
+  font-size: 0.875rem;
+}
+
+.hitl-flags ul {
+  margin-top: 0.5rem;
+  padding-left: 1.25rem;
+}
+
+.hitl-line-items {
+  margin-top: 1.25rem;
+  overflow-x: auto;
+}
+
+.hitl-line-items .prevet-table {
+  font-size: 0.8125rem;
+}
+
+.hitl-line-items .prevet-table th,
+.hitl-line-items .prevet-table td {
+  padding: 0.5rem 0.5rem;
+}
+
+.hitl-yes {
+  color: oklch(0.55 0.15 45);
+  font-weight: 600;
+}
+
+.hitl-approve-section {
+  margin-top: 1rem;
+}
+
+.hitl-approve-btn {
+  padding: 0.5rem 1.25rem;
+  background: #16a349;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hitl-approve-btn:hover:not(:disabled) {
+  background: #138636;
+}
+
+.hitl-approve-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 /* =====================================================
    ANIMATIONS
    ===================================================== */

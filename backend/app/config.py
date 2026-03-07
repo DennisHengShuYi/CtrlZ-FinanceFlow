@@ -17,3 +17,8 @@ CLERK_JWKS_URL: str = os.getenv("CLERK_JWKS_URL", "")
 
 # Server
 PORT: int = int(os.getenv("PORT", "8000"))
+
+# Supabase
+USE_SUPABASE: bool = os.getenv("USE_SUPABASE", "false").lower() in ("true", "1", "yes")
+SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")

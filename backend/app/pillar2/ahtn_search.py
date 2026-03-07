@@ -13,7 +13,6 @@ from openai import OpenAI
 
 from app.pillar2.query_expansion import expand_query
 
-# Use text-embedding-3-large for higher Sim (requires rebuild with same model)
 EMBEDDING_MODEL = os.getenv("AHTN_EMBEDDING_MODEL", "text-embedding-3-small")
 
 # Pillar2 data lives in backend/data/pillar2/

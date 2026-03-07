@@ -120,6 +120,13 @@ python3 -m app.main
 
 The backend will start at **http://localhost:8000**.
 
+### Frontend Routes
+
+| Route | Description |
+|-------|-------------|
+| `/invoice-prevet` | Invoice Pre-vet — Upload JSON & classify AHTN |
+| `/hitl-review` | HITL Review — Invoices needing human verification |
+
 > **Tip:** You can also skip activation and run directly:
 > ```bash
 > ./venv/bin/python -m app.main
@@ -145,7 +152,7 @@ Once both servers are running:
 1. Open **http://localhost:5173** — you should see the login page
 2. Sign in with your Clerk credentials
 3. You'll be redirected to the dashboard
-4. Click **Invoice Pre-vet** to upload a JSON invoice and get AHTN classification
+4. Navigate to **/invoice-prevet** to upload a JSON invoice and get AHTN classification
 5. Test the backend: `curl http://localhost:8000/` → `{"message":"Backend server is running!"}`
 6. View API docs: **http://localhost:8000/docs**
 

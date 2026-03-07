@@ -60,7 +60,9 @@ export default function InvoicePrevetPage() {
     try {
       const text = await file.text();
       const invoice = JSON.parse(text);
-      const res = await fetch(`${API_BASE}/api/invoice/pre-vet`, {
+      const url = new URL(`${API_BASE}/api/invoice/pre-vet`);
+      if (file.name) url.searchParams.set("source_file", file.name);
+      const res = await fetch(url.toString(), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(invoice),
@@ -88,11 +90,10 @@ export default function InvoicePrevetPage() {
     <div className="invoice-prevet-page">
       <header className="dashboard-header">
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
-            ← Dashboard
-          </Link>
-          <span style={{ color: "oklch(0.8 0 0)" }}>/</span>
           <h1>Invoice Pre-vet</h1>
+          <Link to="/hitl-review" className="text-sm text-muted-foreground hover:text-foreground" style={{ marginLeft: "1rem" }}>
+            HITL Review →
+          </Link>
         </div>
         <div className="header-actions">
           <UserButton afterSignOutUrl="/" />

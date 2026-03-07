@@ -8,8 +8,6 @@ import os
 import re
 from typing import Any
 
-from openai import OpenAI
-
 from app.pillar2.ahtn_hints import CHAPTER_HINTS, HEADING_HINTS
 from app.pillar2.ahtn_search import search_ahtn
 
@@ -54,7 +52,6 @@ def _parse_rate(rate_str: str) -> float:
 def _llm_pick_best(product_desc: str, candidates: list[dict]) -> dict | None:
     """
     LLM picks the best AHTN code from RAG candidates.
-    Returns the chosen candidate dict, or None if LLM fails.
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -73,14 +70,19 @@ AHTN candidates from database:
 
 Which AHTN code is correct for this product? Reply with ONLY the code (e.g. 4202.21.00), nothing else."""
 
-    client = OpenAI(api_key=api_key)
     try:
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key)
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=20,
         )
         chosen = response.choices[0].message.content.strip()
+    except Exception:
+        return candidates[0] if candidates else None
+
+    if chosen:
         code_match = re.search(r"\d{4}\.\d{2}(?:\.\d{2})?(?:\.\d{2})?", chosen)
         if code_match:
             code = code_match.group(0).replace(" ", "")
@@ -93,8 +95,6 @@ Which AHTN code is correct for this product? Reply with ONLY the code (e.g. 4202
             for r in candidates:
                 if r["ahtn_code"][:4] == code[:4]:
                     return r
-    except Exception:
-        pass
     return candidates[0] if candidates else None
 
 

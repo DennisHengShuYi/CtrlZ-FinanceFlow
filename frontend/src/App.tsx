@@ -3,6 +3,7 @@ import { SignedIn, SignedOut } from "@clerk/clerk-react";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import InvoicePrevetPage from "./pages/InvoicePrevetPage";
+import HITLReviewPage from "./pages/HITLReviewPage";
 
 export default function App() {
   return (
@@ -44,6 +45,21 @@ export default function App() {
           <>
             <SignedIn>
               <InvoicePrevetPage />
+            </SignedIn>
+            <SignedOut>
+              <Navigate to="/" replace />
+            </SignedOut>
+          </>
+        }
+      />
+
+      {/* HITL Review — Human-In-The-Loop */}
+      <Route
+        path="/hitl-review"
+        element={
+          <>
+            <SignedIn>
+              <HITLReviewPage />
             </SignedIn>
             <SignedOut>
               <Navigate to="/" replace />

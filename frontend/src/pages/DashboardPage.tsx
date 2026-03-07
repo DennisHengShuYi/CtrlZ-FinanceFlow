@@ -1,4 +1,3 @@
-import { Link } from "react-router-dom";
 import { UserButton, useUser } from "@clerk/clerk-react";
 
 // Vercel triangle logo (small)
@@ -84,11 +83,6 @@ export default function DashboardPage() {
                         Here's what's happening with your project today.
                     </p>
                 </div>
-
-                {/* Invoice Pre-vet link */}
-                <Link to="/invoice-prevet" className="prevet-dashboard-link">
-                    📄 Invoice Pre-vet — Upload JSON & classify AHTN
-                </Link>
 
                 {/* Stats Grid */}
                 <div className="dashboard-content">
