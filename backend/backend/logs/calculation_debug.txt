@@ -1,0 +1,105 @@
+================================================================================
+   DETAILED CALCULATION TRACE: 2026-03-08 00:31:42.320174
+================================================================================
+
+STEP 1: SUPABASE DATA RETRIEVAL
+--------------------------------------------------------------------------------
+Requested table: 'invoices' | Total records found: 15
+Requested table: 'payments' | Total records found: 2
+Requested table: 'staff'    | Total employees found: 3
+TTM Filtering range: Records on or after 2025-04-01
+TTM Invoices filtered: 14
+
+STEP 2: ANNUAL REVENUE & AVG MONTHLY INCOME (TRAILING 12 MONTHS)
+--------------------------------------------------------------------------------
+Rule: Customer invoices identified by 'M' prefix in invoice number.
+Number of Customer Invoices (TTM): 10
+Calculated TTM Revenue Sum: RM 429,300.00
+Divisor (Monthly Period): 12 months (calculated from start date to latest invoice)
+Average Monthly Income (Revenue): RM 35,775.00 (Formula: 429,300.00 / 12)
+Annualized Revenue: RM 429,300.00
+
+STEP 3: PAYROLL CONTRIBUTION & MONTHLY EXPENSES
+--------------------------------------------------------------------------------
+Individual Staff Breakdown (from Supabase 'staff' table):
+  1. Raj Kumar:
+     - Gross Salary: RM 6,000.00
+     - EPF Contribution: RM 764.79
+     - SOCSO Contribution: RM 102.95
+     - EIS Contribution: RM 11.80
+     - Monthly Tax (PCB): RM 195.00
+     - Resulting Net Pay: RM 4,925.46
+  2. Siti Aminah binti Rashid:
+     - Gross Salary: RM 5,000.00
+     - EPF Contribution: RM 1,000.00
+     - SOCSO Contribution: RM 233.05
+     - EIS Contribution: RM 11.80
+     - Monthly Tax (PCB): RM 200.00
+     - Resulting Net Pay: RM 3,555.15
+  3. Alex Wong Kah Leong:
+     - Gross Salary: RM 4,000.00
+     - EPF Contribution: RM 1,000.00
+     - SOCSO Contribution: RM 100.00
+     - EIS Contribution: RM 11.80
+     - Monthly Tax (PCB): RM 200.00
+     - Resulting Net Pay: RM 2,688.20
+
+STEP 4: NET PROFIT & TAX CALCULATION (ARITHMETIC BREAKDOWN)
+--------------------------------------------------------------------------------
+1. Monthly Revenue: RM 429,300.00 (Annual) / 12 = RM 35,775.00 /mo
+2. Total Yearly Costs:
+   Supplier Expenses (TTM): RM 57,800.00
+   Payroll (Annualized): RM 180,000.00 (15,000.00 * 12)
+   Total Costs: RM 237,800.00
+3. Monthly Net Profit:
+   (RM 429,300.00 - RM 237,800.00) / 12 = RM 15,958.33
+4. Corporate Tax Calculation (Tiered):
+   Annual Active Profit: RM 191,500.00
+   - First 150k @ 15%: RM 22,500.00
+   - Next 450k @ 17%: RM 7,055.00
+   Total Annual Tax: RM 29,555.00
+   Monthly Tax Est: RM 2,462.92 (RM 29,555.00 / 12)
+
+STEP 5: READINESS FACTORS (DETAILED STEP-BY-STEP ARITHMETIC)
+--------------------------------------------------------------------------------
+The Loan Score is calculated using weighted scores of 6 key factors:
+
+1. Revenue Consistency (Weight: 15%)
+   - Based on Coefficient of Variation (CV) of 12 monthly periods.
+   - Raw Consistency Value: 54.71%
+   - Contribution to Total Score: 8.21pts
+
+2. Collection Efficiency (Weight: 10%)
+   - Formula: (5 Paid Invoices / 10 Total Invoices) * 100
+   - Efficiency Value: 50.00%
+   - Contribution to Total Score: 5.00pts
+
+3. Cash Flow Coverage (Weight: 30%)
+   - Benchmarked against Proposed Monthly Repayment: RM 25,000.00
+   - Ratio: RM 15,958.33 (Net) / RM 25,000.00 (Loan)
+   - Coverage Score (Capped 100%): 63.83%
+   - Contribution to Total Score: 19.15pts
+
+4. Debt-to-Income / DTI Score (Weight: 20%)
+   - Existing Monthly Debt Load: RM 5,000.00
+   - DTI Percentage: (5,000 / 15,958.33) * 100 = 31.33%
+   - Resulting DTI Score (100 - DTI): 68.67%
+   - Contribution to Total Score: 13.73pts
+
+5. Asset Strength (Weight: 15%)
+   - Liquidity Calculation:
+     Cash On Hand: RM -5,000.00
+     + 80% Receivables: RM 167,300.00 * 0.8 = RM 133,840.00
+     - Current Liabilities: RM 57,800.00
+   - Total Net Assets: RM 71,040.00
+   - Asset Score (Relative to RM 200k target): 35.52%
+   - Contribution to Total Score: 5.33pts
+
+6. Compliance Health (Weight: 10%)
+   - Status verified from SSM/LHDN records.
+   - Compliance Score: 100.00%
+   - Contribution to Total Score: 10.00pts
+
+--------------------------------------------------------------------------------
+FINAL WEIGHTED READINESS SCORE: 61.42%
+================================================================================

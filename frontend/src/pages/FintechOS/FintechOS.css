@@ -1,0 +1,279 @@
+/* =====================================================
+   FINTECH OS PAGES — Scoped styles (do NOT override global inputs)
+   ===================================================== */
+
+/* ── Cards ── */
+.fintech-card {
+  background: #ffffff;
+  border: 1px solid oklch(0.92 0 0);
+  border-radius: 10px;
+  padding: 1.75rem;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.fintech-card:hover {
+  border-color: oklch(0.84 0 0);
+  box-shadow: 0px 4px 16px hsl(0 0% 0% / 0.06);
+}
+
+/* ── Stat card (Readiness top metrics) ── */
+.fintech-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+/* ── Progress bars ── */
+.fintech-progress-bar {
+  height: 5px;
+  background: oklch(0.94 0 0);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-top: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.fintech-progress-fill {
+  height: 100%;
+  background: #000000;
+  border-radius: 100px;
+  transition: width 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ── Revenue bar chart ── */
+.fintech-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 200px;
+  padding: 1rem 0 0;
+  border-bottom: 1px solid oklch(0.92 0 0);
+}
+
+.fintech-bar {
+  flex: 1;
+  background: #000000;
+  border-radius: 4px 4px 0 0;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.fintech-bar:hover {
+  opacity: 1;
+}
+
+/* ── Badges ── */
+.fintech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+}
+
+.fintech-badge-success {
+  background: #f0fdf4;
+  color: #16a349;
+  border-color: #bbf7d0;
+}
+
+.fintech-badge-warning {
+  background: #fefce8;
+  color: #ca8a04;
+  border-color: #fde68a;
+}
+
+.fintech-badge-neutral {
+  background: oklch(0.97 0 0);
+  color: oklch(0.44 0 0);
+  border-color: oklch(0.92 0 0);
+}
+
+/* ── Buttons for fintech pages ── */
+.fintech-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  padding: 0 1.1rem;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fintech-btn-primary {
+  background: #000000;
+  color: #ffffff;
+}
+
+.fintech-btn-primary:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px hsl(0 0% 0% / 0.15);
+}
+
+.fintech-btn-secondary {
+  background: #ffffff;
+  color: #000000;
+  border-color: oklch(0.92 0 0);
+}
+
+.fintech-btn-secondary:hover {
+  background: oklch(0.97 0 0);
+  border-color: oklch(0.84 0 0);
+}
+
+.fintech-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ── Registry specific ── */
+.registry-section {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background: #fafafa;
+  border: 1px solid oklch(0.92 0 0);
+  border-radius: 8px;
+}
+
+.registry-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #000000;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid oklch(0.92 0 0);
+}
+
+.registry-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.registry-field label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: oklch(0.44 0 0);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.registry-field input,
+.registry-field select {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid oklch(0.92 0 0);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.8125rem;
+  color: #000000;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.registry-field input:focus,
+.registry-field select:focus {
+  outline: none;
+  border-color: #000000;
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+
+.registry-field input:disabled {
+  background: oklch(0.97 0 0);
+  color: oklch(0.44 0 0);
+  cursor: not-allowed;
+}
+
+.registry-director-block {
+  padding: 1rem;
+  border: 1px dashed oklch(0.88 0 0);
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+
+.registry-director-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: oklch(0.44 0 0);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
+}
+
+/* ── Compliance table ── */
+.fintech-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fintech-table thead {
+  background: oklch(0.98 0 0);
+  border-bottom: 1px solid oklch(0.92 0 0);
+}
+
+.fintech-table th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: oklch(0.44 0 0);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.fintech-table td {
+  padding: 0.875rem 1rem;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid oklch(0.95 0 0);
+  color: oklch(0.3 0 0);
+}
+
+.fintech-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.fintech-table tbody tr:hover td {
+  background: oklch(0.99 0 0);
+}
+
+/* ── Pulsing dot ── */
+.fintech-pulse-dot {
+  width: 7px;
+  height: 7px;
+  background: #16a349;
+  border-radius: 50%;
+  animation: fintechPulse 2s infinite;
+}
+
+@keyframes fintechPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(22, 163, 73, 0.4); }
+  70%  { box-shadow: 0 0 0 8px rgba(22, 163, 73, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 73, 0); }
+}
+
+@keyframes fintechSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

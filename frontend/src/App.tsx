@@ -10,6 +10,10 @@ import WhatsAppPage from "./pages/WhatsAppPage";
 import SettingsPage from "./pages/SettingsPage";
 import ReceiptScanPage from "./pages/ReceiptScanPage";
 import InventoryPage from "./pages/InventoryPage";
+import ReadinessPage from "./pages/FintechOS/ReadinessPage";
+import CTOSPage from "./pages/FintechOS/CTOSPage";
+import RegistryPage from "./pages/FintechOS/RegistryPage";
+import CompliancePage from "./pages/FintechOS/CompliancePage";
 
 const isMockMode = localStorage.getItem("Mock-Mode") === "true";
 
@@ -63,6 +67,10 @@ export default function App() {
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="scan-receipt" element={<ReceiptScanPage />} />
+        <Route path="readiness" element={<ReadinessPage />} />
+        <Route path="ctos" element={<CTOSPage />} />
+        <Route path="registry" element={<RegistryPage />} />
+        <Route path="compliance" element={<CompliancePage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

@@ -1,155 +1,177 @@
-# CtrlZ-The-ADCB
+# FinanceFlow — Manual Run Guide
 
-A full-stack web application with **React (Vite + TypeScript)** frontend and **Python (FastAPI)** backend, using **Clerk** for authentication.
-
----
-
-## 📁 Project Structure
+## Project Layout
 
 ```
-CtrlZ-The-ADCB/
-├── .env.example          # Environment variables template
-├── .env                  # Your local env (not committed)
-├── .gitignore
-├── README.md
-│
-├── frontend/             # React + Vite + TypeScript
-│   ├── src/
-│   │   ├── main.tsx          # Entry point (ClerkProvider + Router)
-│   │   ├── App.tsx           # Route definitions
-│   │   ├── index.css         # Global styles (Tailwind v4 + Vercel theme)
-│   │   ├── lib/utils.ts      # Shadcn utility (cn function)
-│   │   └── pages/
-│   │       ├── LoginPage.tsx      # Clerk sign-in page
-│   │       └── DashboardPage.tsx  # Protected dashboard
-│   ├── components.json      # Shadcn UI config
-│   ├── vite.config.ts       # Vite config (reads root .env)
-│   ├── package.json
-│   └── tsconfig.json
-│
-└── backend/              # Python + FastAPI
+antigravity-minhan/
+├── .env                        ← All API keys (Clerk, Supabase, Gemini)
+├── frontend/                   ← React + Vite (TypeScript)
+└── backend/                    ← FastAPI (Python)
     ├── app/
-    │   ├── __init__.py
-    │   ├── config.py         # Loads root .env
-    │   ├── auth.py           # Clerk JWT verification middleware
-    │   └── main.py           # FastAPI app + routes
-    └── requirements.txt
+    │   ├── main.py             ← API entry point
+    │   └── routers/
+    │       ├── fintech.py      ← Readiness, Compliance, CTOS, Registry APIs
+    │       ├── invoices.py
+    │       ├── payments.py
+    │       ├── clients.py
+    │       └── whatsapp.py
+    └── scripts/
+        └── fintech-utils/      ← Debug/utility scripts
 ```
 
 ---
 
-## 🚀 Getting Started
+## Prerequisites
 
-### Prerequisites
+Make sure you have installed:
+- **Node.js** v18+ → `node --version`
+- **Python** 3.10+ → `python --version`
+- **pip** (comes with Python)
 
-- **Node.js** v20+ and **npm** v10+
-- **Python** 3.11+
-- A **Clerk** account ([sign up here](https://clerk.com))
+---
 
-### 1. Clone the Repository
+## Step 1 — Set Up Environment Variables
 
-```bash
-git clone https://github.com/DennisHengShuYi/CtrlZ-The-ADCB.git
-cd CtrlZ-The-ADCB
+The `.env` file in the root is already configured. It covers all three services:
+
 ```
+# Clerk (Authentication)
+VITE_CLERK_PUBLISHABLE_KEY=...
+CLERK_SECRET_KEY=...
 
-### 2. Set Up Environment Variables
+# Supabase (Database)
+USE_SUPABASE=true
+SUPABASE_URL=https://opgddwdrijiuwvdccvyr.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=...
 
-```bash
-cp .env.example .env
-```
+# Gemini AI (CTOS Analysis)
+GEMINI_API_KEY=...
 
-Open `.env` and fill in your Clerk credentials from the [Clerk Dashboard → API Keys](https://dashboard.clerk.com/last-active?path=api-keys):
-
-```env
-VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
-CLERK_SECRET_KEY=sk_test_your_key_here
-CLERK_JWKS_URL=https://your-instance.clerk.accounts.dev/.well-known/jwks.json
+# Backend port
 PORT=8000
 ```
 
-### 3. Install & Run the Frontend
+> If you need to reset, copy from `.env.example` → `.env`
 
-```bash
+---
+
+## Step 2 — Install Dependencies (First Time Only)
+
+### Backend
+```powershell
+cd backend
+pip install fastapi uvicorn supabase python-dotenv google-genai python-multipart python-jose PyJWT pydantic numpy python-dateutil reportlab
+```
+
+### Frontend
+```powershell
 cd frontend
 npm install
+```
+
+---
+
+## Step 3 — Run the Backend (Terminal 1)
+
+Open a terminal in the project root and run:
+
+```powershell
+cd backend
+python -m app.main
+```
+
+**Expected output:**
+```
+✅ Instagram: Gemini client initialized
+✅ Instagram: Supabase connected
+Connected to Supabase
+INFO: Started server process [XXXXX]
+INFO: Application startup complete.
+INFO: Uvicorn running on http://0.0.0.0:8000
+```
+
+Backend API is now available at: **http://localhost:8000**
+
+---
+
+## Step 4 — Run the Frontend (Terminal 2)
+
+Open a **second** terminal in the project root and run:
+
+```powershell
+cd frontend
 npm run dev
 ```
 
-The frontend will start at **http://localhost:5173**.
+**Expected output:**
+```
+VITE v7.x.x  ready in XXX ms
+➜  Local:   http://localhost:5173/
+```
 
-### 4. Install & Run the Backend
+Open your browser at: **http://localhost:5173**
 
-Open a **new terminal** and run:
+---
 
-```bash
+## Pages Available
+
+| URL | Description |
+|-----|-------------|
+| `/` | Login page (Clerk auth) |
+| `/dashboard` | Overview — invoices, payments, revenue summary |
+| `/dashboard/invoices` | Invoice management |
+| `/dashboard/clients` | Client management |
+| `/dashboard/inventory` | Inventory tracking |
+| `/dashboard/payments` | Payment records |
+| `/dashboard/scan-receipt` | AI receipt scanning |
+| `/dashboard/readiness` | **Loan Readiness Analytics** (Supabase live) |
+| `/dashboard/ctos` | **AI CTOS Credit Report** (Gemini AI) |
+| `/dashboard/registry` | **SSM Registration Hub** (AI-prefilled) |
+| `/dashboard/compliance` | **Tax & Statutory Center** (LHDN) |
+| `/dashboard/whatsapp` | WhatsApp invoice bot |
+| `/dashboard/settings` | Account settings |
+
+---
+
+## API Endpoints (Backend)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/analysis` | Loan readiness score + all metrics |
+| GET | `/api/revenue` | Monthly revenue breakdown |
+| GET | `/api/compliance` | Tax, payroll, SSM data |
+| GET | `/api/ctos` | AI-generated CTOS credit report |
+| GET | `/api/company` | Company name from Supabase |
+| GET | `/api/staff/directors` | Directors for SSM prefill |
+| POST | `/api/ssm/register` | Submit SSM registration |
+| POST | `/api/ssm/annual-return` | File SSM annual return |
+| GET | `/api/invoices/` | All invoices |
+| GET | `/api/payments/` | All payments |
+
+---
+
+## Troubleshooting
+
+### "Cannot connect to backend"
+- Make sure backend is running on port 8000
+- Check CORS: backend allows `localhost:5173` and `localhost:5174`
+
+### "Readiness / Compliance page blank"
+- Backend must be running first
+- Open DevTools → Network tab — check if `/api/analysis` returns 200
+
+### "Supabase not connected"
+- Check `.env` has `USE_SUPABASE=true`
+- Verify `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are correct
+
+### "framer-motion not found"
+```powershell
+cd frontend
+npm install framer-motion
+```
+
+### Backend import errors on startup
+```powershell
 cd backend
-python3 -m venv venv
+pip install python-dateutil numpy reportlab
 ```
-
-Activate the virtual environment:
-
-| Shell | Command |
-|-------|---------|
-| bash / zsh | `source venv/bin/activate` |
-| csh / tcsh | `source venv/bin/activate.csh` |
-| fish | `source venv/bin/activate.fish` |
-| Windows (cmd) | `venv\Scripts\activate.bat` |
-| Windows (PowerShell) | `venv\Scripts\Activate.ps1` |
-
-Then install dependencies and run:
-
-```bash
-pip install -r requirements.txt
-python3 -m app.main
-```
-
-The backend will start at **http://localhost:8000**.
-
-> **Tip:** You can also skip activation and run directly:
-> ```bash
-> ./venv/bin/python -m app.main
-> ```
-
----
-
-## 🔑 API Endpoints
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/` | Public | Health check |
-| `GET` | `/api/protected` | Bearer JWT | Returns authenticated user ID |
-| `GET` | `/docs` | Public | FastAPI auto-generated docs (Swagger) |
-
----
-
-## 🧪 Quick Verification
-
-Once both servers are running:
-
-1. Open **http://localhost:5173** — you should see the login page
-2. Sign in with your Clerk credentials
-3. You'll be redirected to the dashboard
-4. Test the backend: `curl http://localhost:8000/` → `{"message":"Backend server is running!"}`
-5. View API docs: **http://localhost:8000/docs**
-
----
-
-## 🛠 Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| **Frontend** | React 19, TypeScript, Vite 7, Tailwind CSS v4, Shadcn UI |
-| **Backend** | Python 3.11+, FastAPI, Uvicorn, PyJWT |
-| **Auth** | Clerk (React SDK + JWT verification) |
-| **Styling** | Vercel-inspired theme (Geist font, white background) |
-
----
-
-## 📝 Notes
-
-- The single `.env` file at the project root is shared by both frontend and backend.
-  - Vite reads it via `envDir: '../'` in `vite.config.ts`.
-  - FastAPI reads it via `python-dotenv` in `config.py`.
-- The `.env` file is **gitignored** — never commit real keys. Use `.env.example` as a template.
-- The Clerk `Development mode` banner is normal during local development.

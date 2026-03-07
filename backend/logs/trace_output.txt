@@ -1,0 +1,115 @@
+﻿======================================================================
+  FULL FINANCIAL CALCULATION TRACE
+======================================================================
+
+----------------------------------------------------------------------
+  A. REVENUE
+----------------------------------------------------------------------
+  Issuing invoices (type=issuing AND no 'sup' in invoice_number):
+    [2025-03-05] M-INV-007             RM  85,000.00  (unpaid)
+    [2026-01-20] INV-CUST-001          RM  45,000.00  (paid)
+    [2025-10-15] M-INV-002             RM  52,000.00  (paid)
+    [2025-11-15] M-INV-003             RM  48,000.00  (paid)
+    [2025-12-15] M-INV-004             RM  55,000.00  (paid)
+    [2026-02-15] M-INV-006             RM  78,000.00  (unpaid)
+    [2025-07-15] INV-CUST-002          RM  35,000.00  (unpaid)
+    [2025-05-15] M-INV-005             RM  62,000.00  (paid)
+    [2024-09-15] M-INV-001             RM  45,000.00  (paid)
+
+  Total Revenue            = RM 505,000.00
+  Active Months            = 9  ['2024-09', '2025-03', '2025-05', '2025-07', '2025-10', '2025-11', '2025-12', '2026-01', '2026-02']
+  Monthly Avg Revenue      = 505,000.00 / 9 = RM 56,111.11
+
+----------------------------------------------------------------------
+  B. PAYROLL  (salary column read from Supabase staff table)
+----------------------------------------------------------------------
+
+  Siti Aminah binti Rashid
+    Gross (staff.salary)  = RM  15,000.00   <-- READ FROM SUPABASE
+    EPF employer (13%)    = RM   1,731.21   (epf_rate col or salary x 0.13)
+    EPF employee (11%)    = RM   1,650.00   (salary x 0.11, deducted from pay)
+    SOCSO                 = RM     233.05   (socso_rate col)
+    EIS  (0.2%)           = RM      30.00   (salary x 0.002)
+    PCB/Tax               = RM   2,179.17   (calculate_pcb(salary))
+    Net Pay (Deductions)  = RM  11,140.83   (gross - epf_ee - eis - pcb)
+
+  Raj Kumar
+    Gross (staff.salary)  = RM   6,000.00   <-- READ FROM SUPABASE
+    EPF employer (13%)    = RM     764.79   (epf_rate col or salary x 0.13)
+    EPF employee (11%)    = RM     660.00   (salary x 0.11, deducted from pay)
+    SOCSO                 = RM     102.95   (socso_rate col)
+    EIS  (0.2%)           = RM      12.00   (salary x 0.002)
+    PCB/Tax               = RM     207.50   (calculate_pcb(salary))
+    Net Pay (Deductions)  = RM   5,120.50   (gross - epf_ee - eis - pcb)
+
+  Alex Wong Kah Leong
+    Gross (staff.salary)  = RM  18,000.00   <-- READ FROM SUPABASE
+    EPF employer (13%)    = RM   2,347.28   (epf_rate col or salary x 0.13)
+    EPF employee (11%)    = RM   1,980.00   (salary x 0.11, deducted from pay)
+    SOCSO                 = RM     315.98   (socso_rate col)
+    EIS  (0.2%)           = RM      36.00   (salary x 0.002)
+    PCB/Tax               = RM   2,929.17   (calculate_pcb(salary))
+    Net Pay (Deductions)  = RM  13,054.83   (gross - epf_ee - eis - pcb)
+
+  Total Gross Payroll       = RM  39,000.00
+  Total Employer EPF (13%)  = RM   4,843.28
+  Total SOCSO               = RM     651.98
+  Total EIS                 = RM      78.00
+  Monthly Staff Total Cost  = RM  44,573.26  (all above combined)
+
+----------------------------------------------------------------------
+  C. SUPPLIER EXPENSES
+----------------------------------------------------------------------
+    [2026-03-05] BILL-1666A187         RM   2,300.00
+    [2026-02-01] INV-SUP-001           RM  12,000.00
+    [2026-02-10] INV-SUP-002           RM   8,500.00
+    [2026-03-05] 1                     RM   2,000.00
+    [2026-03-05] BILL-E918DF22         RM   2,300.00
+
+  Total Supplier Bills      = RM  27,100.00
+  Monthly Avg Supp Exp      = 27,100.00 / 9 = RM 3,011.11
+
+----------------------------------------------------------------------
+  D. MONTHLY NET INCOME
+----------------------------------------------------------------------
+  Monthly Revenue (avg)     = RM  56,111.11
+  Monthly Staff Cost        = RM  44,573.26
+  Monthly Supp Avg          = RM   3,011.11
+  Monthly Net Income        = 56,111.11 - 44,573.26 - 3,011.11
+                            = RM   8,526.74
+
+----------------------------------------------------------------------
+  E. EFFICIENCY METRICS  (formula + values)
+----------------------------------------------------------------------
+
+  Revenue Consistency:
+    Monthly revenue per month = {'2024-09': 45000.0, '2025-03': 85000.0, '2025-05': 62000.0, '2025-07': 35000.0, '2025-10': 52000.0, '2025-11': 48000.0, '2025-12': 55000.0, '2026-01': 45000.0, '2026-02': 78000.0}
+    StdDev   = 15,365.51
+    Mean     = 56,111.11
+    CV       = StdDev/Mean = 15,365.51/56,111.11 = 0.2738
+    Formula  = 100 - (CV x 50) = 100 - (0.2738 x 50) = 86.31%
+
+  Collection Efficiency:
+    Paid invoices     = 6
+    Total invoices    = 9
+    Formula           = 6/9 x 100 = 66.67%
+
+  Debt-to-Income Ratio:
+    Debt amount       = RM 5,000  (fixed base)
+    Monthly Net       = RM 8,526.74
+    Formula           = (5000 / 8,526.74) x 100 = 58.64%
+
+  Cash Flow Coverage:
+    Monthly Net       = RM 8,526.74
+    Benchmark         = RM 25,000
+    Formula           = 8,526.74 / 25,000 = 0.34x
+
+----------------------------------------------------------------------
+  F. MONTHLY TAX CALCULATION
+----------------------------------------------------------------------
+  Monthly Net Income        = RM 8,526.74
+  Annual Profit Estimate    = 8,526.74 x 12 = RM 102,320.88
+  Bracket <= 150k: 102,320.88 x 15% = RM 15,348.13
+  Monthly Tax = 15,348.13 / 12 = RM 1,279.01
+
+======================================================================

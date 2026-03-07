@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { VercelLogo } from "./ui/VercelLogo";
+import { Activity, ShieldCheck, TrendingUp, Globe } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Overview" },
@@ -20,6 +21,10 @@ const NAV_ITEMS = [
   { to: "/dashboard/inventory", icon: Package, label: "Inventory" },
   { to: "/dashboard/payments", icon: CreditCard, label: "Payments" },
   { to: "/dashboard/scan-receipt", icon: Scan, label: "Scan Receipt" },
+  { to: "/dashboard/readiness", icon: Activity, label: "Readiness" },
+  { to: "/dashboard/ctos", icon: TrendingUp, label: "AI CTOS" },
+  { to: "/dashboard/registry", icon: Globe, label: "Registry" },
+  { to: "/dashboard/compliance", icon: ShieldCheck, label: "Compliance" },
   { to: "/dashboard/whatsapp", icon: MessageSquare, label: "WhatsApp" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
 ];

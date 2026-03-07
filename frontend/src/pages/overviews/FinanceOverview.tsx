@@ -11,7 +11,7 @@ import {
     Scan,
     Wallet,
     Landmark,
-    PiggyBank,
+    TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -168,6 +168,7 @@ export default function FinanceOverview() {
         supplier_pending: [],
     });
 
+    const [analysis, setAnalysis] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
     const displayName =
@@ -182,12 +183,24 @@ export default function FinanceOverview() {
     useEffect(() => {
         async function load() {
             try {
-                const res = await apiFetch("/api/companies/financial-summary");
-                if (res && typeof res.cash_on_hand !== "undefined") {
-                    setSummary(res);
+                // Sanitize storedLoan - remove commas/RM prefix just in case
+                const rawStored = localStorage.getItem('fintech_proposed_loan') || '25000';
+                const sanitizedLoan = rawStored.replace(/[^\d.]/g, '') || '25000';
+
+                const ts = Date.now();
+                const [sumRes, anaRes] = await Promise.all([
+                    apiFetch("/api/companies/financial-summary"),
+                    apiFetch(`/api/analysis?t=${ts}&proposed_loan=${parseFloat(sanitizedLoan)}`)
+                ]);
+
+                if (sumRes && typeof sumRes.cash_on_hand !== "undefined") {
+                    setSummary(sumRes);
+                }
+                if (anaRes && typeof anaRes.loanReadinessScore !== 'undefined') {
+                    setAnalysis(anaRes);
                 }
             } catch (err) {
-                console.error("Failed to load financial summary", err);
+                console.error("Failed to load dashboard data", err);
             } finally {
                 setLoading(false);
             }
@@ -199,8 +212,6 @@ export default function FinanceOverview() {
         return <div className="p-8">Loading dashboard...</div>;
     }
 
-    // Calculate percentages for the simple bar chart
-    // (just a mock visual calculation for the demo based on available money vs pending)
     const totalReceivable = summary.client_pending.reduce(
         (sum, item: any) => sum + parseFloat(item.total_amount || 0),
         0,
@@ -240,10 +251,11 @@ export default function FinanceOverview() {
                     delay={0}
                 />
                 <StatCard
-                    icon={PiggyBank}
-                    label="Available for Expenses"
-                    value={new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(summary.available_for_expenses)}
-                    positive={summary.available_for_expenses >= 0}
+                    icon={TrendingUp}
+                    label="Annual Revenue (TTM)"
+                    value={new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency, maximumFractionDigits: 0 }).format(analysis?.totalRevenue || 0)}
+                    positive={analysis?.currentMonthRevenue > (analysis?.prevMonthRevenue || 0)}
+                    change={analysis?.totalRevenue > 0 ? `${((analysis.currentMonthRevenue - analysis.prevMonthRevenue) / Math.max(1, analysis.prevMonthRevenue) * 100).toFixed(1)}%` : undefined}
                     delay={80}
                 />
                 <StatCard
@@ -258,9 +270,16 @@ export default function FinanceOverview() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div className="lg:col-span-2 space-y-6">
                     <div className="card">
-                        <h3 className="card-header pb-4 font-semibold text-lg border-b mb-4">
-                            Financial Flow
-                        </h3>
+                        <div className="flex items-center justify-between border-b pb-4 mb-4">
+                            <h3 className="font-semibold text-lg">
+                                Financial Flow
+                            </h3>
+                            {analysis?.totalRevenue >= 500000 && (
+                                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
+                                    SSM Registration Required ({">"} RM 500k)
+                                </span>
+                            )}
+                        </div>
                         <div className="space-y-4">
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 flex items-center gap-2">
@@ -286,7 +305,7 @@ export default function FinanceOverview() {
                                     Upcoming Bills
                                 </span>
                                 <span className="font-medium">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable)}
+                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable) || "RM 0.00"}
                                 </span>
                             </div>
 
@@ -318,17 +337,37 @@ export default function FinanceOverview() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <AlertCard
-                            title="Expected Revenue"
-                            items={summary.client_pending}
-                            baseCurrency={summary.base_currency}
-                        />
-                        <AlertCard
-                            title="Upcoming Bills"
-                            items={summary.supplier_pending}
-                            isSupplier={true}
-                            baseCurrency={summary.base_currency}
-                        />
+                        <div className="card p-0 overflow-hidden">
+                            <div className="p-4 border-b bg-gray-50/50">
+                                <h3 className="font-medium text-sm flex items-center justify-between">
+                                    Active E-Invoices (Customer)
+                                    <span className="text-xs text-gray-400 font-normal">Issuing</span>
+                                </h3>
+                            </div>
+                            <div className="p-4">
+                                <AlertCard
+                                    title="Customer Receivables"
+                                    items={summary.client_pending.filter((inv: any) => inv.type === "issuing")}
+                                    baseCurrency={summary.base_currency}
+                                />
+                            </div>
+                        </div>
+                        <div className="card p-0 overflow-hidden">
+                            <div className="p-4 border-b bg-gray-50/50">
+                                <h3 className="font-medium text-sm flex items-center justify-between">
+                                    Supplier Bills
+                                    <span className="text-xs text-gray-400 font-normal">Receiving</span>
+                                </h3>
+                            </div>
+                            <div className="p-4">
+                                <AlertCard
+                                    title="Upcoming Bills"
+                                    items={summary.supplier_pending}
+                                    isSupplier={true}
+                                    baseCurrency={summary.base_currency}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
