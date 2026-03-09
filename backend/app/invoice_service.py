@@ -7,7 +7,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from app.supabase_client import supabase
+from app.supabase_client import supabase, with_retry
 from fastapi import BackgroundTasks, HTTPException
 
 
@@ -22,6 +22,7 @@ def create_company(user_id: str, data: dict) -> dict:
     return result.data[0]
 
 
+@with_retry()
 def get_company(user_id: str) -> Optional[dict]:
     result = (
         supabase.table("user_companies")
@@ -45,6 +46,7 @@ def update_company(company_id: str, data: dict) -> dict:
 # ═══════════════════════════════════════════
 # Clients
 # ═══════════════════════════════════════════
+@with_retry()
 def create_client(data: dict) -> dict:
     result = supabase.table("clients").insert(data).execute()
     if not result.data:
@@ -52,6 +54,7 @@ def create_client(data: dict) -> dict:
     return result.data[0]
 
 
+@with_retry()
 def get_clients(company_id: str) -> list[dict]:
     result = (
         supabase.table("clients")
@@ -63,6 +66,7 @@ def get_clients(company_id: str) -> list[dict]:
     return result.data
 
 
+@with_retry()
 def get_client_by_name(company_id: str, name: str) -> Optional[dict]:
     result = (
         supabase.table("clients")
@@ -75,6 +79,7 @@ def get_client_by_name(company_id: str, name: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+@with_retry()
 def get_client_by_phone(company_id: str, phone_number: str) -> Optional[dict]:
     result = (
         supabase.table("clients")
@@ -87,6 +92,7 @@ def get_client_by_phone(company_id: str, phone_number: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+@with_retry()
 def get_client(client_id: str) -> Optional[dict]:
     result = (
         supabase.table("clients").select("*").eq("id", client_id).limit(1).execute()
@@ -119,19 +125,52 @@ def delete_client(client_id: str) -> bool:
 # ═══════════════════════════════════════════
 # Invoices
 # ═══════════════════════════════════════════
+def _safe_date(raw) -> str:
+    """Ensure a value is a valid YYYY-MM-DD date string for Supabase."""
+    from datetime import date, datetime
+    today = date.today()
+    if not raw:
+        return str(today)
+    s = str(raw).strip()
+    # Already valid ISO date
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except ValueError:
+        pass
+    # Day-only: "09"
+    if s.isdigit() and len(s) <= 2:
+        day = int(s)
+        if 1 <= day <= 31:
+            try:
+                return str(today.replace(day=day))
+            except ValueError:
+                pass
+    return str(today)
+
+
 def create_invoice(invoice_data: dict, items: list[dict], background_tasks: BackgroundTasks = None) -> dict:
     # Calculate total
     total = sum(Decimal(str(item["price"])) * item["quantity"] for item in items)
 
+    # Defensive: ensure date is valid YYYY-MM-DD before sending to Supabase
+    safe_date = _safe_date(invoice_data.get("date"))
+    safe_month = invoice_data.get("month", safe_date[:7])
+    if len(safe_month) < 7 or safe_month[4:5] != '-':
+        safe_month = safe_date[:7]
+
+    invoice_type = invoice_data.get("type", "issuing")
+
     payload = {
         "client_id": invoice_data["client_id"],
         "invoice_number": invoice_data["invoice_number"],
-        "date": str(invoice_data["date"]),
-        "month": invoice_data["month"],
+        "date": safe_date,
+        "month": safe_month,
         "currency": invoice_data.get("currency", "MYR"),
-        "type": invoice_data.get("type", "issuing"),
+        "type": invoice_type,
         "exchange_rate": str(Decimal(str(invoice_data.get("exchange_rate", 1.0)))),
         "total_amount": str(total),
+        "notes": invoice_data.get("notes"),
     }
 
     result = supabase.table("invoices").insert(payload).execute()
@@ -139,25 +178,138 @@ def create_invoice(invoice_data: dict, items: list[dict], background_tasks: Back
         raise HTTPException(status_code=400, detail="Failed to create invoice.")
     invoice = result.data[0]
 
-    # Insert items
+    # Resolve company_id for product matching
+    client = get_client(invoice["client_id"])
+    company_id = client["company_id"] if client else None
+
+    # Insert items + link to products + sync inventory
     for item in items:
+        item_desc = item.get("description", "")
+        item_qty = item.get("quantity", 0)
+
+        # Match item to a product in the database
+        matched_product = None
+        if company_id:
+            matched_product = get_product_by_name(company_id, item_desc)
+
         item_payload = {
             "invoice_id": invoice["id"],
-            "description": item["description"],
+            "description": item_desc,
             "price": str(Decimal(str(item["price"]))),
-            "quantity": item["quantity"],
+            "quantity": item_qty,
         }
-        supabase.table("invoice_items").insert(item_payload).execute()
+        if item.get("unit"):
+            item_payload["unit"] = item["unit"]
+        if item.get("origin_country"):
+            item_payload["origin_country"] = item["origin_country"]
+        if item.get("unit_price") is not None:
+            item_payload["unit_price"] = str(Decimal(str(item["unit_price"])))
 
-    if invoice_data.get("type") == "receiving":
-        client = get_client(invoice["client_id"])
-        if client:
-            company_id = client["company_id"]
-            # Trigger the auto-evaluation process in the background
-            if background_tasks:
-                background_tasks.add_task(evaluate_auto_payment, invoice["id"], invoice["client_id"], company_id)
+        # Link product_id if matched
+        if matched_product:
+            item_payload["product_id"] = matched_product["id"]
+
+        insert_result = supabase.table("invoice_items").insert(item_payload).execute()
+        if not insert_result.data:
+            print(f"WARNING: Failed to insert invoice item: {item_payload}")
+
+        # ── Inventory Sync ──
+        # issuing (sale to customer)  -> decrement stock
+        # receiving (purchase from supplier) -> increment stock
+        if matched_product and item_qty > 0:
+            if invoice_type == "issuing":
+                delta = -item_qty
+            elif invoice_type == "receiving":
+                delta = +item_qty
+            else:
+                delta = 0
+
+            if delta != 0:
+                new_val = adjust_product_inventory(matched_product["id"], delta)
+                print(
+                    f"[Inventory] Matched '{item_desc}' to Product ID {matched_product['id'][:8]}... "
+                    f"({invoice_type} x{item_qty}) -> New Stock: {new_val}"
+                )
+        elif not matched_product and company_id:
+            print(
+                f"[Inventory] WARNING: No product match for '{item_desc}' — "
+                f"inventory not updated. Consider creating this product."
+            )
+
+    # Trigger auto-payment evaluation for receiving invoices
+    if invoice_type == "receiving" and client:
+        if background_tasks:
+            background_tasks.add_task(evaluate_auto_payment, invoice["id"], invoice["client_id"], company_id)
 
     return get_invoice(invoice["id"])
+
+
+# ═══════════════════════════════════════════
+# Inventory Helpers (for Agentic Restock)
+# ═══════════════════════════════════════════
+@with_retry()
+def get_product_by_name(company_id: str, name: str) -> Optional[dict]:
+    """Fuzzy match a product by name within a company."""
+    result = (
+        supabase.table("products")
+        .select("*")
+        .eq("company_id", company_id)
+        .ilike("name", f"%{name}%")
+        .limit(1)
+        .execute()
+    )
+    return result.data[0] if result.data else None
+
+
+@with_retry()
+def update_product_inventory(product_id: str, new_inventory: int) -> dict:
+    """Set absolute inventory for a product."""
+    from datetime import datetime
+    result = (
+        supabase.table("products")
+        .update({"inventory": new_inventory, "updated_at": datetime.utcnow().isoformat()})
+        .eq("id", product_id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=400, detail="Failed to update product inventory.")
+    return result.data[0]
+
+
+@with_retry()
+def adjust_product_inventory(product_id: str, delta: int) -> Optional[int]:
+    """
+    Atomically adjust inventory by delta (+/-).
+    Tries the RPC stored procedure first (race-condition safe),
+    falls back to read-modify-write if the RPC doesn't exist yet.
+    Returns the new inventory value, or None on failure.
+    """
+    # Try atomic RPC first
+    try:
+        rpc_result = supabase.rpc("adjust_inventory", {
+            "p_product_id": product_id,
+            "p_delta": delta,
+        }).execute()
+        if rpc_result.data is not None:
+            new_val = rpc_result.data
+            print(f"[Inventory] Atomic RPC: product {product_id[:8]}... delta={delta:+d} -> new stock={new_val}")
+            return new_val
+    except Exception:
+        pass  # RPC not available, fall back
+
+    # Fallback: read-modify-write
+    from datetime import datetime
+    product = supabase.table("products").select("inventory").eq("id", product_id).limit(1).execute()
+    if not product.data:
+        return None
+    current = product.data[0].get("inventory", 0)
+    new_val = max(0, current + delta)
+    supabase.table("products").update({
+        "inventory": new_val,
+        "updated_at": datetime.utcnow().isoformat(),
+    }).eq("id", product_id).execute()
+    print(f"[Inventory] Fallback: product {product_id[:8]}... {current} {delta:+d} -> {new_val}")
+    return new_val
 
 
 def get_invoices(company_id: str) -> list[dict]:
@@ -184,6 +336,7 @@ def get_invoices(company_id: str) -> list[dict]:
     return invoices
 
 
+@with_retry()
 def get_invoice(invoice_id: str) -> Optional[dict]:
     result = (
         supabase.table("invoices").select("*").eq("id", invoice_id).limit(1).execute()
@@ -231,6 +384,7 @@ def delete_invoice(invoice_id: str) -> bool:
 # ═══════════════════════════════════════════
 # Payments
 # ═══════════════════════════════════════════
+@with_retry()
 def create_payment(data: dict) -> dict:
     payload = {
         "client_id": data["client_id"],
@@ -417,6 +571,7 @@ def process_payment_verification(company_id: str, payment_data: dict) -> dict:
     return payment
 
 
+@with_retry()
 def get_financial_summary(company_id: str) -> dict:
     clients = get_clients(company_id)
     company_res = supabase.table("user_companies").select("base_currency").eq("id", company_id).execute()
@@ -520,7 +675,7 @@ async def evaluate_auto_payment(invoice_id: str, client_id: str, company_id: str
         base_currency=base_currency,
     )
 
-    if ai_decision.get("approve"):
+    if ai_decision.get("decision") == "approve":
         reason = ai_decision.get("reason", "Approved by AI based on cash flow.")
         payment_payload = {
             "invoice_id": invoice_id,
@@ -538,4 +693,3 @@ async def evaluate_auto_payment(invoice_id: str, client_id: str, company_id: str
         print(f"Auto-payment triggered successfully for invoice {invoice_id}")
     else:
         print(f"Auto-payment rejected by AI for invoice {invoice_id}")
-

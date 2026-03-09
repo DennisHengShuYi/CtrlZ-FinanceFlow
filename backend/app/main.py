@@ -24,7 +24,7 @@ from app.routers.clients import router as clients_router
 from app.routers.invoices import router as invoices_router
 from app.routers.payments import router as payments_router
 from app.routers.currency import router as currency_router
-from app.routers.whatsapp import pillar1_router, invoice_router
+from app.routers.whatsapp import router as whatsapp_router
 
 app = FastAPI(
     title="CtrlZ-The-ADCB API",
@@ -66,10 +66,9 @@ def protected_route(claims: dict[str, Any] = Depends(require_auth)):
     return {"message": f"Authenticated! Your userId is: {user_id}"}
 
 # ──────────────────────────────────────
-# Include Pillar 1 routers
+# Include WhatsApp router
 # ──────────────────────────────────────
-app.include_router(pillar1_router)
-app.include_router(invoice_router)   # <-- add this line
+app.include_router(whatsapp_router)
 app.include_router(instagram.router)
 app.include_router(product.router)
 

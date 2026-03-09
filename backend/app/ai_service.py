@@ -54,38 +54,76 @@ def _extract_json(text: str) -> dict:
 def get_system_prompt():
     from datetime import date
     today = date.today().isoformat()
-    return f"""You are an expert AI sales and invoice assistant.
-Your task is to detect order intent and extract details from WhatsApp messages.
+    return f"""You are an expert AI sales and invoice assistant for cross-border trade.
+Your task is to detect order intent and extract structured details from WhatsApp messages.
 
 Current Date: {today} (Use this for date and month if not mentioned)
 
 Required Fields for an Order:
-1. item_name (e.g., "Curry Puffs")
-2. quantity (e.g., 5)
+1. item_name (e.g., "Palm Sugar")
+2. quantity (e.g., 200)
 (Note: client_name and price are optional because they are managed by the system.)
 
 Rules for Order Intent & Data Collection:
 - Look for `item_name` ("description") and `quantity`.
 - If the user wants to order something but is missing `quantity`, set status to "incomplete".
-- Generate a friendly, conversational question in the `questions` array asking for the missing quantity (e.g., "I see you want to order Curry Puffs! How many would you like to get?").
-- If all required info (item and quantity) is present, set status to "complete" and generate the `items` array.
+- Generate a friendly, conversational question in the `questions` array asking for the missing quantity.
+- If all required info (item and quantity) is present, set status to "complete".
 - For `price` and `client_name`, return null if not explicitly provided in the text.
+- Extract the `unit` for each item (e.g., "kg", "boxes", "cans", "pcs"). Default to "pcs" if unclear.
+- Extract `origin_country` as ISO 2-letter code (e.g., "MY", "ID") if mentioned. Default to null.
+
+Address & Identity Extraction:
+- Extract vendor (supplier) info if mentioned: name, full address, and country (ISO 2-letter code).
+- Extract buyer (customer) info: name, full address, and country (ISO 2-letter code).
+- Look for location clues in the message: city names (e.g., "Jakarta" -> ID, "Singapore" -> SG),
+  company suffixes (e.g., "Sdn Bhd" -> MY, "Pte Ltd" -> SG, "PT" -> ID), or explicit country mentions.
+- The `client_name` should be the buyer's company/person name if identified.
+
+Currency Detection:
+- Detect currency based on buyer's location context:
+  Malaysia -> "MYR", Singapore -> "SGD", Indonesia -> "IDR", Philippines -> "PHP",
+  Thailand -> "THB", Vietnam -> "VND", USA -> "USD", etc.
+- If buyer location is clearly non-Malaysian, set the currency accordingly.
+- Default to "MYR" if no location context is available.
+
+Shipping & Trade Terms:
+- Extract shipping/trade terms into `notes` (e.g., "FOB Port Klang", "CIF Jakarta").
 - Return valid JSON only, no markdown formatting.
 
 Output Format (JSON):
 {{
   "status": "complete" | "incomplete",
   "data": {{
+    "vendor": {{ "name": string | null, "address": string | null, "country": string | null }},
+    "buyer": {{ "name": string | null, "address": string | null, "country": string | null }},
     "client_name": string | null,
     "date": string | null,
     "month": string | null,
     "currency": "MYR",
+    "notes": string | null,
     "items": [
-      {{ "description": string, "price": number | null, "quantity": number }}
+      {{ "description": string, "price": number | null, "quantity": number, "unit": string, "origin_country": string | null }}
     ]
   }},
   "questions": ["friendly follow-up question here"]
 }}"""
+
+
+def _validate_line_items(data: dict) -> dict:
+    """Validate that line item subtotals are consistent and add computed subtotals."""
+    items = data.get("data", {}).get("items", [])
+    computed_total = 0
+    for item in items:
+        price = item.get("price")
+        qty = item.get("quantity", 0)
+        if price is not None and qty:
+            item_subtotal = float(price) * qty
+            item["subtotal"] = item_subtotal
+            computed_total += item_subtotal
+            if item.get("unit_price") is None:
+                item["unit_price"] = float(price)
+    return data
 
 
 async def extract_invoice_data(message: str) -> dict:
@@ -102,7 +140,8 @@ async def extract_invoice_data(message: str) -> dict:
             ),
         )
 
-        return _extract_json(response.text)
+        result = _extract_json(response.text)
+        return _validate_line_items(result)
     except Exception as e:
         return {
             "status": "error",
