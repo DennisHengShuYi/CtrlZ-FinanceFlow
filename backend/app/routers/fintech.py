@@ -970,123 +970,234 @@ async def ssm_register(data: dict):
 async def get_ctos(email: Optional[str] = None):
     import random, json as _json
 
-    # --- 1. Simulate CTOS raw data ---
-    score = 712
-    utilization_pct = 42
-    has_delayed_payment = random.choice([True, False])
-    has_short_history = False
-    has_too_many_inquiries = True
-    has_poor_mix = True
+    # --- 1. Calculate CTOS score dynamically ---
+    # Factors (Malaysian Scoring Logic approx):
+    # Payment History (35%), Amount Owed (30%), Length of History (15%), Credit Mix (10%), New Credit (10%)
+    
+    # 1a. Generate raw factors
+    has_delayed_payment = random.choices([False, True], weights=[0.7, 0.3])[0]
+    utilization_pct = random.randint(10, 95)
+    history_months = random.randint(3, 180) # 3 months to 15 years
+    has_short_history = history_months < 24
+    inquiry_count = random.randint(0, 12)
+    has_too_many_inquiries = inquiry_count > 3
+    has_poor_mix = random.choices([True, False], weights=[0.4, 0.6])[0]
+    has_legal_issue = random.choices([False, True], weights=[0.95, 0.05])[0]
+
+    # --- 1b. Scoring Engine (Base: 300, Max: 850)
+    current_score = 300
+    
+    calc_steps = [f"Base Score: {current_score}"]
+    
+    # Payment History (Max +192.5)
+    if not has_delayed_payment: 
+        current_score += 192.5
+        calc_steps.append("Payment History: Perfect (+192.5)")
+    else: 
+        current_score += 30
+        calc_steps.append("Payment History: Arrears detected (+30.0)")
+    
+    # Utilization (Max +165)
+    if utilization_pct < 20: 
+        current_score += 165
+        calc_steps.append(f"Utilization ({utilization_pct}%): Excellent (+165.0)")
+    elif utilization_pct < 40: 
+        current_score += 130
+        calc_steps.append(f"Utilization ({utilization_pct}%): Good (+130.0)")
+    elif utilization_pct < 60: 
+        current_score += 80
+        calc_steps.append(f"Utilization ({utilization_pct}%): Fair (+80.0)")
+    elif utilization_pct < 80: 
+        current_score += 30
+        calc_steps.append(f"Utilization ({utilization_pct}%): Poor (+30.0)")
+    else: 
+        current_score += 5
+        calc_steps.append(f"Utilization ({utilization_pct}%): Very Poor (+5.0)")
+    
+    # History Length (Max +82.5)
+    if history_months > 84: 
+        current_score += 82.5
+        calc_steps.append(f"History Length ({history_months}m): Deep (+82.5)")
+    elif history_months > 48: 
+        current_score += 65
+        calc_steps.append(f"History Length ({history_months}m): Mature (+65.0)")
+    elif history_months > 24: 
+        current_score += 40
+        calc_steps.append(f"History Length ({history_months}m): Average (+40.0)")
+    else: 
+        current_score += 10
+        calc_steps.append(f"History Length ({history_months}m): Thin (+10.0)")
+    
+    # New Credit/Inquiries (Max +55)
+    if inquiry_count <= 1: 
+        current_score += 55
+        calc_steps.append(f"Inquiries ({inquiry_count}): Minimal (+55.0)")
+    elif inquiry_count <= 3: 
+        current_score += 35
+        calc_steps.append(f"Inquiries ({inquiry_count}): Moderate (+35.0)")
+    elif inquiry_count <= 6: 
+        current_score += 15
+        calc_steps.append(f"Inquiries ({inquiry_count}): High (+15.0)")
+    else: 
+        current_score += 0
+        calc_steps.append(f"Inquiries ({inquiry_count}): Excessive (+0.0)")
+    
+    # Credit Mix (Max +55)
+    if not has_poor_mix: 
+        current_score += 55
+        calc_steps.append("Credit Mix: Balanced (+55.0)")
+    else: 
+        current_score += 20
+        calc_steps.append("Credit Mix: Unbalanced (+20.0)")
+
+    # Legal Records Penalty
+    if has_legal_issue:
+        current_score = max(300, current_score - 200)
+        calc_steps.append("Legal Records: Active Litigation Penalty (-200.0)")
+
+    score = round(current_score)
+    calc_steps.append(f"Final Calculated Score: {score}")
 
     # --- 1b. Business Profile Variables ---
-    # Fetch actual company name
+    active_comp_id, business_name = await get_active_company(email)
     
     if USE_SUPABASE and supabase:
-        # BROAD ACCESS
-        invoices_res = supabase.table('invoices').select('total_amount, date, type, invoice_number').execute()
+        invoices_res = supabase.table('invoices').select('total_amount, date, type, invoice_number, status').execute()
         payments_res = supabase.table('payments').select('amount, client_id, clients(type)').execute()
-        
         invoices = invoices_res.data
         payments = payments_res.data
-        
-        issuing_invoices = [i for i in invoices if i.get('type') == 'issuing']
+        issuing_invoices = [i for i in invoices if is_issuing_invoice(i)]
         total_revenue = sum(i['total_amount'] for i in issuing_invoices)
-        
-        monthly_revs = {}
-        for i in issuing_invoices:
-            m = i['date'][:7]
-            monthly_revs[m] = monthly_revs.get(m, 0) + i['total_amount']
-        # DYNAMIC DIVISOR 
         month_count = await get_dynamic_divisor(invoices)
-        monthly_revenue = round(total_revenue / month_count)
-        
+        monthly_revenue = round(total_revenue / max(1, month_count))
         cust_payments = sum(p['amount'] for p in payments if (p.get('clients') and p['clients'].get('type') == 'customer'))
         supp_payments = sum(p['amount'] for p in payments if (p.get('clients') and p['clients'].get('type') == 'supplier'))
         cash_on_hand = round(cust_payments - supp_payments)
-        
         unpaid_cust_invoices = sum(i['total_amount'] for i in issuing_invoices if i['status'] != 'paid')
         total_assets = round(cash_on_hand + unpaid_cust_invoices)
-        
-        # Default name if not found
-        # business_name = "Ctrl-Z SDN BHD" 
     else:
         conn = sqlite3.connect(DATABASE)
         cursor = conn.cursor()
-
-        # Total Revenue (same as EInvoiceAnalysis dashboard)
         cursor.execute("SELECT SUM(amount) FROM revenue_metrics")
         total_revenue = cursor.fetchone()[0] or 0
-
-        # Monthly Average Revenue (same as perform_analysis)
         cursor.execute("SELECT COUNT(DISTINCT SUBSTR(issued_date,1,7)) FROM revenue_metrics")
         month_count = cursor.fetchone()[0] or 1
         monthly_revenue = round(total_revenue / month_count)
-
-        # Cash on Hand (Payments received from customers - Payments sent to suppliers)
         cursor.execute("SELECT SUM(p.amount) FROM payments p JOIN clients c ON p.client_id = c.id WHERE c.type = 'customer'")
         customer_payments = cursor.fetchone()[0] or 0
         cursor.execute("SELECT SUM(p.amount) FROM payments p JOIN clients c ON p.client_id = c.id WHERE c.type = 'supplier'")
         supplier_payments = cursor.fetchone()[0] or 0
         cash_on_hand = round(customer_payments - supplier_payments)
-
-        # Total Assets (Cash + Unpaid customer invoices)
-        cursor.execute("SELECT SUM(i.total_amount) FROM invoices i JOIN clients c ON i.client_id = c.id WHERE c.type = 'customer' AND i.status != 'paid'")
-        accounts_receivable = cursor.fetchone()[0] or 0
-        total_assets = round(cash_on_hand + accounts_receivable)
+        unpaid_cust_invoices = 0
+        total_assets = cash_on_hand
         conn.close()
-        business_name = business_name
-    # TODO: Replace target_loan with user-submitted loan application amount from a form
-    target_loan = random.choice([50000, 100000, 150000, 200000, 300000])
-    # TODO: Replace business_name with: SELECT name FROM user_companies WHERE user_id = ?
-    # business_name = "TechLance Solutions Sdn Bhd"
-    # TODO: Replace target_loan with user-submitted loan application amount from a form
-    # target_loan = random.choice([50000, 100000, 150000, 200000, 300000])
 
-    # --- 2. Grade & Decision ---
+    target_loan = random.choice([50000, 100000, 150000, 200000, 250000, 500000])
+
+    # --- 2. Dynamic Decision & Probability ---
+    # Probability is anchored by Grade but varies linearly with Score within the category
+    prob_calc = []
+    
     if score >= 744:
-        grade, prob, decision = "Excellent", 95, "Approved - Premium Rates"
+        grade, decision = "Excellent", "Approved - Premium Rates"
+        # 80% to 95% base
+        base_prob = 80 + round((score - 744) / (850 - 744) * 15)
+        prob_calc.append(f"Grade: {grade} (Score-Weighted Base: {base_prob}%)")
     elif score >= 697:
-        grade, prob, decision = "Good", 85, "Approved - Standard Rates"
+        grade, decision = "Good", "Approved - Standard Rates"
+        # 60% to 79% base
+        base_prob = 60 + round((score - 697) / (743 - 697) * 19)
+        prob_calc.append(f"Grade: {grade} (Score-Weighted Base: {base_prob}%)")
     elif score >= 651:
-        grade, prob, decision = "Fair", 65, "Approved with Conditions (Collateral Req)"
+        grade, decision = "Fair", "Approved with Conditions (Collateral Req)"
+        # 30% to 59% base
+        base_prob = 30 + round((score - 651) / (696 - 651) * 29)
+        prob_calc.append(f"Grade: {grade} (Score-Weighted Base: {base_prob}%)")
     else:
-        grade, prob, decision = "Low", 30, "Rejected - High Risk Profile"
+        grade, decision = "Low", "Rejected - High Risk Profile"
+        # 5% to 29% base
+        base_prob = 5 + round((score - 300) / (650 - 300) * 24)
+        prob_calc.append(f"Grade: {grade} (Score-Weighted Base: {base_prob}%)")
+
+    # DSR adjustment (-25% to +10%)
+    repayment_est = target_loan / 60
+    dsr_factor = (monthly_revenue * 0.4) / max(1, repayment_est)
+    prob_calc.append(f"DSR Calculation: (RM {monthly_revenue} rev * 0.4) / RM {round(repayment_est)} repayment = {round(dsr_factor, 2)}")
+    
+    if dsr_factor > 1.2: 
+        dsr_adj = 10
+        prob_calc.append("DSR Bonus: Strong (+10%)")
+    elif dsr_factor > 0.8: 
+        dsr_adj = 0
+        prob_calc.append("DSR Adjustment: Neutral (+0%)")
+    elif dsr_factor > 0.5: 
+        dsr_adj = -10
+        prob_calc.append("DSR Penalty: Weak (-10%)")
+    else: 
+        dsr_adj = -25
+        prob_calc.append("DSR Penalty: Critical (-25%)")
+
+    random_variance = random.randint(-5, 5)
+    prob = min(98, max(2, base_prob + dsr_adj + random_variance))
+    prob_calc.append(f"Random Variance: {random_variance}%")
+    prob_calc.append(f"Final Probability: {prob}%")
+
+    # Log calculations to debug file
+    log_dir = Path(__file__).parent.parent.parent / "logs"
+    os.makedirs(log_dir, exist_ok=True)
+    with open(log_dir / "calculation_debug.txt", "a", encoding="utf-8") as f:
+        f.write(f"\n--- {datetime.datetime.now()} ---\n")
+        f.write("CTOS SCORE BREAKDOWN:\n")
+        for step in calc_steps:
+            f.write(f"  - {step}\n")
+        f.write("\nLOAN PROBABILITY ENGINE:\n")
+        for p_step in prob_calc:
+            f.write(f"  - {p_step}\n")
+        f.write(f"Parameters: Enrollment=True, Business={business_name}, TargetLoan=RM {target_loan:,}\n")
 
     # --- 3. Elements ---
     elements = []
     elements.append({"name": "Payment History", "value": "Warning" if has_delayed_payment else "Excellent",
                      "explanation": "We detected recent delayed payments. This is actively suppressing your score." if has_delayed_payment
                      else "Perfect repayment record. This is a massive positive signal for partner banks."})
+    
     elements.append({"name": "Credit Utilization", "value": f"{utilization_pct}%",
-                     "explanation": "High utilization. Keeping this below 30% strongly improves your score." if utilization_pct > 50
-                     else "Healthy utilization. Partner banks favor borrowers who don't max out facilities."})
-    elements.extend([
-        {"name": "Credit History Length", "value": "< 24 Months" if has_short_history else "4 Years",
-         "explanation": "Short history detected. Lenders need more time to assess your business behavior." if has_short_history
-         else "Solid history. Partner banks prefer businesses with over 3 years of continuous operation."},
-        {"name": "Legal Records", "value": "Clear", "explanation": "No bankruptcies or litigation found. This is a mandatory passing grade."},
-        {"name": "Credit Mix", "value": "Poor" if has_poor_mix else "Average",
-         "explanation": "100% unsecured debt detected. Diversifying to secured loans improves your profile." if has_poor_mix
-         else "You have mostly unsecured loans. Adding a secured loan in the future further balances your profile."},
-    ])
+                     "explanation": "High utilization detected (over 60%). Banks see this as a sign of cash flow stress." if utilization_pct > 60
+                     else "Healthy utilization. You are using credit responsibly without overleveraging."})
+
+    history_label = f"{round(history_months/12, 1)} Years" if history_months >= 12 else f"{history_months} Months"
+    elements.append({"name": "Credit History Length", "value": history_label,
+                     "explanation": "Limited track record. Lenders prefer at least 24 months of established history." if has_short_history
+                     else f"Solid {history_label} history establishes you as a reliable long-term borrower."})
+
+    elements.append({"name": "Credit Mix", "value": "Poor" if has_poor_mix else "Average",
+                     "explanation": "Lack of diversified credit facilities (mostly unsecured/cards) is a risk factor." if has_poor_mix
+                     else "Balanced mix of secured and unsecured facilities demonstrates mature debt management."})
+
+    elements.append({"name": "Recent Inquiries", "value": str(inquiry_count),
+                     "explanation": f"High inquiry count ({inquiry_count}). Too many hard checks in 90 days reduce your score." if inquiry_count > 3
+                     else "Optimal inquiry level. Your profile shows stable credit seeking behavior."})
+
 
     # --- 4. Identify Active Issues ---
     issues = []
-    if utilization_pct > 50:
+    if utilization_pct > 60: # Match the explanation logic
         issues.append(f"High credit utilization at {utilization_pct}%")
     if has_delayed_payment:
         issues.append("history of delayed payments on loan accounts")
     if has_short_history:
         issues.append("thin credit file (less than 24 months of history)")
     if has_too_many_inquiries:
-        issues.append("excessive credit inquiries (multiple banks checked in last 3 months)")
+        # Clarify that this is about inquiries, not utilization
+        issues.append(f"excessive credit seeking ({inquiry_count} bank inquiries detected in last 90 days)")
     if has_poor_mix:
         issues.append("unbalanced debt profile (100% unsecured credit cards)")
 
     # --- 5. Use Gemini AI for Personalized Roadmap (if API key is set) ---
     red_flags = []
-    gemini_api_key = os.getenv("GEMINI_API_KEY", "")
-
+    was_ai_successful = False
+    gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip('"').strip("'")
+    
     if gemini_api_key and gemini_api_key != "your-api-key-here" and issues:
         try:
             issues_text = "\n".join(f"- {issue}" for issue in issues)
@@ -1112,7 +1223,7 @@ Each JSON object must have exactly these 4 keys:
 - "description": 2 sentences. Explain specifically what the issue is, what metric triggered it, and how it is currently impacting the credit score and the RM {target_loan:,} loan application.
 - "roadmap_action": A numbered 2-step action plan with SPECIFIC RM amounts, bank names or methods, and exact timeframe (e.g. "Step 1: Within the next 30 days, pay down RM X from your Maybank credit card to bring utilization from {utilization_pct}% to below 30%. Step 2: Set up a CIMB auto-debit instruction to ensure minimum monthly payments are never missed.")
 - "roadmap_impact": State the expected score points gained, the timeframe for improvement, and how this improves the RM {target_loan:,} loan outcome.
-- "loan_approval_prediction": A percentage (0-100) representing the likelihood of approval for the RM {target_loan:,} loan.
+- "loan_approval_prediction": A percentage (0-100) representing the likelihood of approval for the RM {target_loan:,} loan. USE THE CALCULATED 'Loan Probability' ({prob}%) AS YOUR ABSOLUTE BASELINE. Do NOT give a high percentage if the baseline is low.
 
 Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
 
@@ -1128,18 +1239,20 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
                 raw = response.choices[0].message.content.strip()
             else:
                 client = google_genai.Client(api_key=gemini_api_key)
-                print(f"DEBUG: Generating AI recommendation for {business_name} with score {score}...")
+                print(f"DEBUG: Generating AI recommendation for {business_name} using gemini-2.5-flash...")
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash", # Updated to supported model version
+                    model="gemini-2.5-flash", # Updated to specific model requested by user
                     contents=prompt
                 )
                 raw = response.text.strip()
                 print(f"DEBUG: Gemini raw response received (length: {len(raw)})")
 
             # Log raw response for debugging
-            os.makedirs("backend/logs", exist_ok=True)
-            with open("backend/logs/gemini_debug.log", "a", encoding="utf-8") as f:
-                f.write(f"--- {datetime.datetime.now()} ---\n")
+            log_dir = Path(__file__).parent.parent.parent / "logs"
+            os.makedirs(log_dir, exist_ok=True)
+            with open(log_dir / "gemini_debug.log", "a", encoding="utf-8") as f:
+                f.write(f"\n--- {datetime.datetime.now()} ---\n")
+                f.write(f"MODEL: gemini-2.5-flash\n")
                 f.write(f"RAW RESPONSE: {raw}\n")
 
             # Clean up response (strip markdown)
@@ -1151,39 +1264,52 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
                         raw = raw.strip()[4:]
             
             try:
-                red_flags = _json.loads(raw.strip())
+                # Extra cleanup - remove any leading/trailing non-JSON characters if they exist
+                raw_json = raw.strip()
+                if "[" in raw_json and "]" in raw_json:
+                     start = raw_json.find("[")
+                     end = raw_json.rfind("]") + 1
+                     raw_json = raw_json[start:end]
+                
+                red_flags = _json.loads(raw_json)
+                was_ai_successful = True
             except Exception as json_err:
-                with open("backend/logs/gemini_debug.log", "a", encoding="utf-8") as f:
-                    f.write(f"JSON PARSE ERROR: {json_err}\n")
+                print(f"JSON PARSE ERROR: {json_err}")
+                if log_dir:
+                    with open(log_dir / "gemini_debug.log", "a", encoding="utf-8") as f:
+                        f.write(f"JSON PARSE ERROR: {json_err}\n")
                 raise json_err # trigger critical error catch below
 
         except Exception as e:
             error_msg = f"CRITICAL Gemini API error: {type(e).__name__}: {e}"
             print(error_msg)
             # Log to dedicated file for user to see
-            os.makedirs("backend/logs", exist_ok=True)
-            with open("backend/logs/gemini_errors.txt", "a", encoding="utf-8") as f:
+            log_dir = Path(__file__).parent.parent.parent / "logs"
+            os.makedirs(log_dir, exist_ok=True)
+            with open(log_dir / "gemini_errors.txt", "a", encoding="utf-8") as f:
                 f.write(f"[{datetime.datetime.now()}] {error_msg}\n")
-            with open("backend/logs/gemini_debug.log", "a", encoding="utf-8") as f:
+            with open(log_dir / "gemini_debug.log", "a", encoding="utf-8") as f:
                 f.write(f"EXCEPTION: {error_msg}\n")
             red_flags = None  # trigger fallback
+            was_ai_successful = False
 
     # --- 6. Fallback: Rules-Based Engine (Enhanced with Real Data) ---
     if not red_flags and issues:
+        was_ai_successful = False
         red_flags = []
         if utilization_pct > 50:
             debt_rm = round(monthly_revenue * (utilization_pct / 100))
             red_flags.append({
                 "type": f"High Credit Utilization ({utilization_pct}%)", 
                 "description": f"Your current revolving debt is estimated at RM {debt_rm:,}. This is significantly impacting your RM {target_loan:,} loan capacity.",
-                "roadmap_action": f"Within 30 days, pay down RM {round(debt_rm * 0.4):,} to bring utilization below the 30% healthy threshold.", 
+                "roadmap_action": f"Within 30 days, pay down RM {round(max(0, debt_rm * 0.4)):,} to bring utilization below the 30% healthy threshold.", 
                 "roadmap_impact": "Will add approximately 25-40 points to your CTOS score within 2 billing cycles."
             })
         if has_delayed_payment:
             red_flags.append({
                 "type": "Historical Delayed Payment", 
                 "description": "Records indicate missed payments that occurred during low cash flow months.",
-                "roadmap_action": f"Use your current cash on hand (RM {cash_on_hand:,}) to settle any outstanding arrears immediately and set up auto-debit.", 
+                "roadmap_action": f"Use your current cash on hand (RM {max(0, cash_on_hand):,}) to settle any outstanding arrears immediately and set up auto-debit.", 
                 "roadmap_impact": "Stabilizes your profile; 6 months of consistent payment will unlock Tier 1 bank rates."
             })
         if has_short_history:
@@ -1204,7 +1330,7 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
             red_flags.append({
                 "type": "Unbalanced Debt Mix", 
                 "description": "Your profile relies heavily on unsecured credit, which is considered high-risk for expansion loans.",
-                "roadmap_action": f"Consider converting RM {round(cash_on_hand * 0.2):,} of short-term debt into a secured term loan.", 
+                "roadmap_action": f"Consider converting RM {round(max(0, cash_on_hand * 0.2)):,} of short-term debt into a secured term loan.", 
                 "roadmap_impact": "Demonstrates sophisticated debt management and improves long-term bankability.",
                 "loan_approval_prediction": prob
             })
@@ -1216,7 +1342,7 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
         "bank_decision": decision,
         "elements": elements,
         "red_flags": red_flags or [],
-        "ai_powered": bool(gemini_api_key and gemini_api_key != "your-api-key-here")
+        "ai_powered": was_ai_successful
     }
 
 @router.post("/api/payments/scan-receipt")

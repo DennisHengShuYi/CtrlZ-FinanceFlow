@@ -93,14 +93,16 @@ const CTOSAnalysis = () => {
                                         <div style={{ fontSize: '1.5rem', fontWeight: 700, color: report.loan_probability >= 70 ? 'var(--success)' : 'var(--foreground)' }}>
                                             {report.bank_decision}
                                         </div>
-                                        {report.red_flags && report.red_flags[0]?.loan_approval_prediction && (
-                                            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', marginTop: '0.5rem' }}>
-                                                <div style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Loan Approval Likelihood</div>
-                                                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'oklch(0.7 0.25 145)' }}>
-                                                    {report.red_flags[0].loan_approval_prediction}%
-                                                </div>
+                                        <div style={{ padding: '0.75rem 1.5rem', background: 'var(--background)', borderRadius: '1rem', border: '1px solid var(--border)', marginTop: '0.5rem' }}>
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)', textTransform: 'uppercase' }}>Loan Approval Likelihood</div>
+                                            <div style={{
+                                                fontSize: '1.5rem',
+                                                fontWeight: 800,
+                                                color: report.loan_probability >= 70 ? 'oklch(0.7 0.25 145)' : report.loan_probability >= 50 ? 'oklch(0.7 0.2 60)' : 'var(--destructive)'
+                                            }}>
+                                                {report.loan_probability}%
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                     <p style={{ fontSize: '0.8125rem', color: 'var(--muted-foreground)', marginTop: '1rem' }}>
                                         Based on a {report.loan_probability}% probability of successful loan servicing.
