@@ -1,136 +1,160 @@
--- =====================================================
--- AI-Powered WhatsApp Invoice Generation — DB Schema
--- Run this in the Supabase SQL Editor
--- =====================================================
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
--- Create User Companies table
-CREATE TABLE IF NOT EXISTS user_companies (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  address TEXT,
-  business_reg TEXT,
-  logo_url TEXT,
-  base_currency TEXT DEFAULT 'MYR',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.clients (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  company_id uuid,
+  name text NOT NULL,
+  contact_info text,
+  business_reg text,
+  person_in_charge text,
+  type text CHECK (type = ANY (ARRAY['customer'::text, 'supplier'::text])),
+  created_at timestamp with time zone DEFAULT now(),
+  phone_number text,
+  address text,
+  country varchar(2),
+  CONSTRAINT clients_pkey PRIMARY KEY (id),
+  CONSTRAINT clients_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.user_companies(id)
 );
-
--- Enable RLS for User Companies
-ALTER TABLE user_companies ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their own company" ON user_companies;
-CREATE POLICY "Users can only see their own company" ON user_companies
-  FOR ALL USING (auth.uid()::text = user_id::text);
-
--- Create Clients table
-CREATE TABLE IF NOT EXISTS clients (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  company_id UUID REFERENCES user_companies(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  contact_info TEXT,
-  phone_number TEXT,
-  business_reg TEXT,
-  person_in_charge TEXT,
-  type TEXT CHECK (type IN ('customer', 'supplier')),
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.instagram_comments (
+  id text NOT NULL,
+  post_id text,
+  username text,
+  text text,
+  sentiment text,
+  ai_reply text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT instagram_comments_pkey PRIMARY KEY (id)
 );
-
--- Enable RLS for Clients
-ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their company's clients" ON clients;
-CREATE POLICY "Users can only see their company's clients" ON clients
-  FOR ALL USING (
-    company_id IN (SELECT id FROM user_companies WHERE user_id::text = auth.uid()::text)
-  );
-
--- Create Invoices table
-CREATE TABLE IF NOT EXISTS invoices (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
-  invoice_number TEXT NOT NULL,
-  date DATE NOT NULL,
-  month TEXT NOT NULL,
-  type TEXT DEFAULT 'issuing' CHECK (type IN ('issuing', 'receiving')),
-  ai_auto_paid_reason TEXT,
-  status TEXT DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'paid', 'partially_paid')),
-  total_amount DECIMAL(12,2) DEFAULT 0,
-  currency TEXT DEFAULT 'MYR',
-  exchange_rate DECIMAL(12,6) DEFAULT 1.0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.instagram_posts (
+  id text NOT NULL,
+  caption text,
+  likes_count integer,
+  comments_count integer,
+  fetched_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT instagram_posts_pkey PRIMARY KEY (id)
 );
-
--- Enable RLS for Invoices
-ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their company's invoices" ON invoices;
-CREATE POLICY "Users can only see their company's invoices" ON invoices
-  FOR ALL USING (
-    client_id IN (
-      SELECT id FROM clients WHERE company_id IN (
-        SELECT id FROM user_companies WHERE user_id::text = auth.uid()::text
-      )
-    )
-  );
-
--- Create Invoice Items table
-CREATE TABLE IF NOT EXISTS invoice_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  invoice_id UUID REFERENCES invoices(id) ON DELETE CASCADE,
-  description TEXT NOT NULL,
-  price DECIMAL(12,2) NOT NULL,
-  quantity INTEGER NOT NULL,
-  subtotal DECIMAL(12,2) GENERATED ALWAYS AS (price * quantity) STORED,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.invoice_items (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  invoice_id uuid,
+  product_id uuid,
+  description text NOT NULL,
+  price numeric NOT NULL,
+  quantity integer NOT NULL,
+  subtotal numeric DEFAULT (price * (quantity)::numeric),
+  created_at timestamp with time zone DEFAULT now(),
+  unit varchar(20),
+  origin_country varchar(2),
+  unit_price numeric,
+  CONSTRAINT invoice_items_pkey PRIMARY KEY (id),
+  CONSTRAINT invoice_items_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES public.invoices(id),
+  CONSTRAINT invoice_items_product_id_fkey FOREIGN KEY (product_id) REFERENCES public.products(id)
 );
-
--- Enable RLS for Invoice Items
-ALTER TABLE invoice_items ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their company's invoice items" ON invoice_items;
-CREATE POLICY "Users can only see their company's invoice items" ON invoice_items
-  FOR ALL USING (
-    invoice_id IN (
-      SELECT id FROM invoices WHERE client_id IN (
-        SELECT id FROM clients WHERE company_id IN (
-          SELECT id FROM user_companies WHERE user_id::text = auth.uid()::text
-        )
-      )
-    )
-  );
-
--- Create Payments table
-CREATE TABLE IF NOT EXISTS payments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
-  amount DECIMAL(12,2) NOT NULL,
-  date DATE NOT NULL,
-  method TEXT,
-  notes TEXT,
-  currency TEXT DEFAULT 'MYR',
-  exchange_rate DECIMAL(12,6) DEFAULT 1.0,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.invoice_prevet_results (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  invoice_id text NOT NULL,
+  invoice_data jsonb NOT NULL,
+  pre_vet_result jsonb NOT NULL,
+  source_file text,
+  status text NOT NULL DEFAULT 'pending_review'::text CHECK (status = ANY (ARRAY['pending_review'::text, 'approved'::text])),
+  reviewed_by text,
+  reviewed_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT invoice_prevet_results_pkey PRIMARY KEY (id)
 );
-
--- Enable RLS for Payments
-ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their company's payments" ON payments;
-CREATE POLICY "Users can only see their company's payments" ON payments
-  FOR ALL USING (
-    client_id IN (
-      SELECT id FROM clients WHERE company_id IN (
-        SELECT id FROM user_companies WHERE user_id::text = auth.uid()::text
-      )
-    )
-  );
-
--- Create Pending Invoices table for AI conversational state
-CREATE TABLE IF NOT EXISTS pending_invoices (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id TEXT NOT NULL,
-  raw_message TEXT,
-  extracted_data JSONB,
-  missing_fields TEXT[],
-  last_interaction TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE public.invoices (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  invoice_number text NOT NULL,
+  date date NOT NULL,
+  month text NOT NULL,
+  status text DEFAULT 'unpaid'::text CHECK (status = ANY (ARRAY['unpaid'::text, 'paid'::text, 'partially_paid'::text])),
+  total_amount numeric DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  currency text DEFAULT 'USD'::text,
+  exchange_rate numeric DEFAULT 1.0,
+  type text DEFAULT 'issuing'::text CHECK (type = ANY (ARRAY['issuing'::text, 'receiving'::text])),
+  ai_auto_paid_reason text,
+  notes text,
+  CONSTRAINT invoices_pkey PRIMARY KEY (id),
+  CONSTRAINT invoices_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
 );
-
-ALTER TABLE pending_invoices ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can only see their own pending invoices" ON pending_invoices;
-CREATE POLICY "Users can only see their own pending invoices" ON pending_invoices
-  FOR ALL USING (auth.uid()::text = user_id::text);
+CREATE TABLE public.payments (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  client_id uuid,
+  amount numeric NOT NULL,
+  date date NOT NULL,
+  method text,
+  notes text,
+  created_at timestamp with time zone DEFAULT now(),
+  currency text DEFAULT 'USD'::text,
+  exchange_rate numeric DEFAULT 1.0,
+  CONSTRAINT payments_pkey PRIMARY KEY (id),
+  CONSTRAINT payments_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.clients(id)
+);
+CREATE TABLE public.pending_invoices (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id text NOT NULL,
+  raw_message text,
+  extracted_data jsonb,
+  missing_fields ARRAY,
+  last_interaction timestamp with time zone DEFAULT now(),
+  CONSTRAINT pending_invoices_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.products (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  inventory integer NOT NULL DEFAULT 0,
+  threshold integer NOT NULL DEFAULT 10,
+  image text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  company_id uuid,
+  supplier_id uuid,
+  price numeric DEFAULT 0.0,
+  currency text DEFAULT 'MYR'::text,
+  cost_price numeric DEFAULT 0.0,
+  unit varchar(20),
+  origin_country varchar(2),
+  CONSTRAINT products_pkey PRIMARY KEY (id),
+  CONSTRAINT products_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.user_companies(id),
+  CONSTRAINT products_supplier_id_fkey FOREIGN KEY (supplier_id) REFERENCES public.clients(id)
+);
+CREATE TABLE public.staff (
+  id text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  name text NOT NULL DEFAULT ''::text UNIQUE,
+  email text NOT NULL DEFAULT ''::text UNIQUE,
+  role text DEFAULT ''::text,
+  epf_rate numeric,
+  tax_rate numeric,
+  socso_rate numeric,
+  company_id uuid DEFAULT gen_random_uuid(),
+  salary numeric,
+  eis_rate numeric,
+  CONSTRAINT staff_pkey PRIMARY KEY (id),
+  CONSTRAINT staff_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.user_companies(id)
+);
+CREATE TABLE public.user_companies (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id text NOT NULL,
+  name text NOT NULL,
+  address text,
+  business_reg text,
+  logo_url text,
+  created_at timestamp with time zone DEFAULT now(),
+  base_currency text DEFAULT 'USD'::text,
+  email text,
+  CONSTRAINT user_companies_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.whatsapp_messages (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  session_id text NOT NULL,
+  role text NOT NULL,
+  content text NOT NULL,
+  intent text,
+  mood text,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id)
+);

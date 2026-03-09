@@ -22,13 +22,15 @@ router = APIRouter(prefix="/api/products", tags=["products"])
 class ProductBase(BaseModel):
     name: str
     inventory: int
-    threshold: int
+    threshold: int = 10
     image: Optional[str] = None
     price: Optional[float] = 0.0
     cost_price: Optional[float] = 0.0
     currency: Optional[str] = "MYR"
     company_id: Optional[str] = None
     supplier_id: Optional[str] = None
+    unit: Optional[str] = None
+    origin_country: Optional[str] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -42,6 +44,8 @@ class ProductUpdate(BaseModel):
     cost_price: Optional[float] = None
     currency: Optional[str] = None
     supplier_id: Optional[str] = None
+    unit: Optional[str] = None
+    origin_country: Optional[str] = None
 
 class Product(ProductBase):
     id: str

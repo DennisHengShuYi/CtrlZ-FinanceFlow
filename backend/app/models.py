@@ -37,6 +37,8 @@ class ClientCreate(BaseModel):
     business_reg: Optional[str] = None
     person_in_charge: Optional[str] = None
     type: Optional[str] = Field(None, pattern="^(customer|supplier)$")
+    address: Optional[str] = None
+    country: Optional[str] = None
 
 
 class ClientOut(ClientCreate):
@@ -51,6 +53,9 @@ class InvoiceItemCreate(BaseModel):
     description: str
     price: Decimal
     quantity: int
+    unit: Optional[str] = None
+    origin_country: Optional[str] = None
+    unit_price: Optional[Decimal] = None
 
 
 class InvoiceCreate(BaseModel):
@@ -62,16 +67,21 @@ class InvoiceCreate(BaseModel):
     currency: str = "MYR"
     exchange_rate: Decimal = Decimal("1.0")
     items: list[InvoiceItemCreate]
+    notes: Optional[str] = None
 
 
 class InvoiceItemOut(BaseModel):
     id: str
     invoice_id: str
+    product_id: Optional[str] = None
     description: str
     price: Decimal
     quantity: int
     subtotal: Decimal
     created_at: datetime
+    unit: Optional[str] = None
+    origin_country: Optional[str] = None
+    unit_price: Optional[Decimal] = None
 
 
 class InvoiceOut(BaseModel):
@@ -89,6 +99,7 @@ class InvoiceOut(BaseModel):
     items: list[InvoiceItemOut] = []
     client_name: Optional[str] = None
     ai_auto_paid_reason: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class InvoiceStatusUpdate(BaseModel):
