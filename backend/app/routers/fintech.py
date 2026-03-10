@@ -406,11 +406,13 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
             print(f"DEBUG ANALYSIS: Total Supp={total_supplier_expenses}, Monthly Avg Supp={monthly_avg_supplier_expenses}")
 
 
-            # --- Payments (Cash flow - typically all-time) ---
-            cust_payments = sum(p['amount'] for p in payments if (p.get('clients') and p['clients'].get('type') == 'customer'))
-            supp_payments = sum(p['amount'] for p in payments if (p.get('clients') and p['clients'].get('type') == 'supplier'))
-            cash_on_hand = cust_payments - supp_payments
-            total_out_money = supp_payments 
+            # --- Cash Flow (Based on Paid Invoices) ---
+            # Rule: Use 'invoices' table instead of 'payments' as per user request
+            cust_paid_invoices_sum = sum(i['total_amount'] for i in invoices if is_issuing_invoice(i) and i['status'] == 'paid')
+            supp_paid_invoices_sum = sum(i['total_amount'] for i in invoices if is_receiving_invoice(i) and i['status'] == 'paid')
+            
+            cash_on_hand = cust_paid_invoices_sum - supp_paid_invoices_sum
+            total_out_money = supp_paid_invoices_sum 
 
             # Assets (Liquidity Snapshot)
             # Refined: Cash + Discounted Receivables (80% value) - Pending Liabilities
@@ -613,7 +615,8 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
 
             f.write(f"5. Asset Strength (Weight: 15%)\n")
             f.write(f"   - Liquidity Calculation:\n")
-            f.write(f"     Cash On Hand: RM {cash_on_hand:,.2f}\n")
+            f.write(f"     Cash On Hand (Paid Invoices): RM {cash_on_hand:,.2f}\n")
+            f.write(f"     (Based on Sum of Paid Customer Invoices minus Paid Supplier Invoices)\n")
             f.write(f"     + 80% Receivables: RM {unpaid_cust_invoices_sum:,.2f} * 0.8 = RM {unpaid_cust_invoices_sum*0.8:,.2f}\n")
             f.write(f"     - Current Liabilities: RM {pending_supp_bills:,.2f}\n")
             f.write(f"   - Total Net Assets: RM {total_assets:,.2f}\n")

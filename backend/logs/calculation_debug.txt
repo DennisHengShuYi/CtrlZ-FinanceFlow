@@ -268,3 +268,166 @@ LOAN PROBABILITY ENGINE:
   - Random Variance: -1%
   - Final Probability: 83%
 Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 200,000
+
+--- 2026-03-10 03:55:31.418432 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (49%): Fair (+80.0)
+  - History Length (119m): Deep (+82.5)
+  - Inquiries (1): Minimal (+55.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 765
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Excellent (Score-Weighted Base: 83%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 833 repayment = 15.91
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: -1%
+  - Final Probability: 92%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 50,000
+
+--- 2026-03-10 03:55:50.237583 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Arrears detected (+30.0)
+  - Utilization (86%): Very Poor (+5.0)
+  - History Length (58m): Mature (+65.0)
+  - Inquiries (12): Excessive (+0.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 455
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Low (Score-Weighted Base: 16%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 4167 repayment = 3.18
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: -4%
+  - Final Probability: 22%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 250,000
+
+--- 2026-03-10 03:58:17.898762 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (89%): Very Poor (+5.0)
+  - History Length (73m): Mature (+65.0)
+  - Inquiries (7): Excessive (+0.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 618
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Low (Score-Weighted Base: 27%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 4167 repayment = 3.18
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: -3%
+  - Final Probability: 34%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 250,000
+
+--- 2026-03-10 04:02:05.611785 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (94%): Very Poor (+5.0)
+  - History Length (55m): Mature (+65.0)
+  - Inquiries (2): Moderate (+35.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 652
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Fair (Score-Weighted Base: 31%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 3333 repayment = 3.98
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 2%
+  - Final Probability: 43%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 200,000
+
+--- 2026-03-10 04:02:33.661212 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (40%): Fair (+80.0)
+  - History Length (92m): Deep (+82.5)
+  - Inquiries (3): Moderate (+35.0)
+  - Credit Mix: Unbalanced (+20.0)
+  - Legal Records: Active Litigation Penalty (-200.0)
+  - Final Calculated Score: 510
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Low (Score-Weighted Base: 19%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 4167 repayment = 3.18
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 5%
+  - Final Probability: 34%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 250,000
+
+--- 2026-03-10 04:03:11.307510 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (21%): Good (+130.0)
+  - History Length (107m): Deep (+82.5)
+  - Inquiries (7): Excessive (+0.0)
+  - Credit Mix: Unbalanced (+20.0)
+  - Final Calculated Score: 725
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Good (Score-Weighted Base: 72%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 8333 repayment = 1.59
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 0%
+  - Final Probability: 82%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 500,000
+
+--- 2026-03-10 14:03:36.565766 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Perfect (+192.5)
+  - Utilization (21%): Good (+130.0)
+  - History Length (144m): Deep (+82.5)
+  - Inquiries (6): High (+15.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 775
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Excellent (Score-Weighted Base: 84%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 8333 repayment = 1.59
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 3%
+  - Final Probability: 97%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 500,000
+
+--- 2026-03-10 14:14:26.727408 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Arrears detected (+30.0)
+  - Utilization (21%): Good (+130.0)
+  - History Length (70m): Mature (+65.0)
+  - Inquiries (6): High (+15.0)
+  - Credit Mix: Unbalanced (+20.0)
+  - Final Calculated Score: 560
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Low (Score-Weighted Base: 23%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 8333 repayment = 1.59
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 0%
+  - Final Probability: 33%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 500,000
+
+--- 2026-03-10 14:14:54.301593 ---
+CTOS SCORE BREAKDOWN:
+  - Base Score: 300
+  - Payment History: Arrears detected (+30.0)
+  - Utilization (18%): Excellent (+165.0)
+  - History Length (100m): Deep (+82.5)
+  - Inquiries (0): Minimal (+55.0)
+  - Credit Mix: Balanced (+55.0)
+  - Final Calculated Score: 688
+
+LOAN PROBABILITY ENGINE:
+  - Grade: Fair (Score-Weighted Base: 54%)
+  - DSR Calculation: (RM 33150 rev * 0.4) / RM 2500 repayment = 5.3
+  - DSR Bonus: Strong (+10%)
+  - Random Variance: 0%
+  - Final Probability: 64%
+Parameters: Enrollment=True, Business=Ctrl-Z SDN BHD, TargetLoan=RM 150,000
