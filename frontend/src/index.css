@@ -756,6 +756,118 @@ body,
 }
 
 /* =====================================================
+   BUTTONS
+   ===================================================== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  background: #000000;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    opacity 0.15s ease,
+    transform 0.1s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* =====================================================
+   PREMIUM UI UTILITIES
+   ===================================================== */
+.premium-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.premium-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid oklch(0.92 0 0);
+  background: #ffffff;
+}
+
+.premium-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.1);
+  border-color: oklch(0.85 0 0);
+}
+
+.premium-bg-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+}
+
+.premium-row-highlight {
+  transition: background-color 0.15s ease;
+}
+
+.premium-row-highlight:hover {
+  background-color: oklch(0.97 0 0) !important;
+}
+
+.premium-badge-amber {
+  background: oklch(0.95 0.05 85);
+  color: oklch(0.3 0.1 85);
+  border: 1px solid oklch(0.9 0.1 85);
+}
+
+.premium-scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.premium-scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.premium-scroll-thin::-webkit-scrollbar-thumb {
+  background: oklch(0.85 0 0);
+  border-radius: 10px;
+}
+
+.premium-scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.7 0 0);
+}
+
+/* =====================================================
+   AHTN / INVOICE PREVET SPECIFIC
+   ===================================================== */
+.input-method-card {
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.input-method-card.active {
+  border-color: #000000;
+  background: oklch(0.98 0 0);
+}
+
+.drop-zone {
+  border: 2px dashed oklch(0.85 0 0);
+  transition: all 0.2s ease;
+  background: oklch(0.99 0 0);
+}
+
+.drop-zone:hover {
+  border-color: #000000;
+  background: #ffffff;
+}
+
+/* =====================================================
    DATA TABLE
    ===================================================== */
 .table-container {

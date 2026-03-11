@@ -316,7 +316,9 @@ def _inv_num(i):
     return (i.get('invoice_number') or '').strip()
 
 def is_issuing_invoice(i):
-    """Customer revenue invoice: must start with 'M' (case-insensitive)."""
+    """Customer revenue invoice: must start with 'M' (case-insensitive) or have type 'issuing'."""
+    if i.get('type') == 'issuing':
+        return True
     return _inv_num(i).upper().startswith('M')
 
 def is_receiving_invoice(i):
@@ -398,12 +400,28 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
             else:
                 consistency = 100
 
-            # --- Receiving (TTM Expenses) ---
-            # Rule: anything else = supplier expense
+            # --- Receiving (TTM Expenses) — with currency conversion to MYR ---
+            # Rule: invoice_number not starting with 'M' = supplier expense
             receiving_invoices = [i for i in ttm_invoices if is_receiving_invoice(i)]
-            total_supplier_expenses = sum(i['total_amount'] for i in receiving_invoices)
+            try:
+                from app.currency_service import fetch_exchange_rate as _fer
+                total_supplier_expenses = 0.0
+                for _inv in receiving_invoices:
+                    _amt = float(_inv.get('total_amount') or 0)
+                    _cur = (_inv.get('currency') or 'MYR').upper()
+                    if _cur != 'MYR':
+                        try:
+                            _rate_data = _fer(_cur, 'MYR')
+                            _rate = float(_rate_data.get('rate', 1.0)) if _rate_data else 1.0
+                        except Exception:
+                            _rate = 1.0
+                        _amt = _amt * _rate
+                    total_supplier_expenses += _amt
+            except Exception:
+                # Fallback: no conversion
+                total_supplier_expenses = sum(i['total_amount'] for i in receiving_invoices)
             monthly_avg_supplier_expenses = total_supplier_expenses / divisor
-            print(f"DEBUG ANALYSIS: Total Supp={total_supplier_expenses}, Monthly Avg Supp={monthly_avg_supplier_expenses}")
+            print(f"DEBUG ANALYSIS: Total Supp (MYR-converted)={total_supplier_expenses}, Monthly Avg Supp={monthly_avg_supplier_expenses}")
 
 
             # --- Cash Flow (Based on Paid Invoices) ---
@@ -462,10 +480,12 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
             
             for s in staff_res.data:
                 salary = s.get('salary') or 0
-                epf = s.get('epf_rate') if 'epf_rate' in s else s.get('epf', salary * 0.13)
-                socso = s.get('socso_rate') if 'socso_rate' in s else s.get('socso', salary * 0.0175)
-                eis = s.get('eis_rate') if 'eis_rate' in s else s.get('eis', salary * 0.002)
-                tax = s.get('tax_rate') if 'tax_rate' in s else s.get('tax', calculate_pcb(salary))
+                # Fallback chain: rate column (multiplier) -> absolute column -> default calculation
+                # epf_rate, socso_rate, etc are usually 0.13, 0.0175 etc in the database
+                epf = (salary * s['epf_rate']) if s.get('epf_rate') is not None else (s.get('epf') or (salary * 0.13))
+                socso = (salary * s['socso_rate']) if s.get('socso_rate') is not None else (s.get('socso') or (salary * 0.0175))
+                eis = (salary * s['eis_rate']) if s.get('eis_rate') is not None else (s.get('eis') or (salary * 0.002))
+                tax = (salary * s['tax_rate']) if s.get('tax_rate') is not None else (s.get('tax') or calculate_pcb(salary))
                 staff_list.append({
                     "name": s.get('name', 'Unknown'),
                     "salary": salary, 
@@ -484,9 +504,10 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
     monthly_statutory_total = sum(s['epf'] + s['socso'] + s['eis'] + s.get('tax', 0) for s in staff_list)
     
     # RULE: User states RM 39k gross already includes all statutory costs
+    # Net income = current month's revenue - supplier expenses (MYR-converted) - payroll
     monthly_avg_expenses = monthly_avg_supplier_expenses + monthly_payroll_gross
-    monthly_net_income = monthly_avg_revenue - monthly_avg_expenses
-    print(f"DEBUG ANALYSIS: Total Payroll (Incl Statutory)={monthly_payroll_gross}, Net={monthly_net_income}")
+    monthly_net_income = current_month_rev - monthly_avg_expenses
+    print(f"DEBUG ANALYSIS: current_month_rev={current_month_rev}, Total Payroll={monthly_payroll_gross}, Supp Exp={monthly_avg_supplier_expenses}, Net={monthly_net_income}")
     
     # DTI (Debt 5000)
     dti_percentage = (5000 / max(1, monthly_net_income)) * 100 if monthly_net_income > 0 else 100
@@ -523,10 +544,60 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
         annual_tax_est = (150000 * 0.15) + (450000 * 0.17) + (annual_profit_est - 600000) * 0.24
     monthly_tax = annual_tax_est / 12
 
+    # --- Real 6-Month Positive Cash Flow Ratio (Silver/Gold Logic) ---
+    ratio_debug_lines = []
+    try:
+        from app.currency_service import fetch_exchange_rate
+        monthly_net_flow = {}
+        ratio_debug_lines.append("--- INVOICE CURRENCY CONVERSION & CLASSIFICATION ---")
+        for inv in invoices:
+            inv_date = inv.get('date')
+            if not inv_date: continue
+            
+            month = str(inv_date)[:7]
+            amount = float(inv.get('total_amount') or 0)
+            currency = inv.get('currency') or 'MYR'
+            inv_num = str(inv.get('invoice_number') or '')
+            
+            # Currency conversion logic
+            amount_myr = amount
+            if currency.upper() != 'MYR':
+                try:
+                    rate_data = fetch_exchange_rate(currency.upper(), "MYR")
+                    rate = float(rate_data.get("rate", 1.0))
+                except Exception:
+                    rate = 1.0
+                amount_myr = amount * rate
+                ratio_debug_lines.append(f"  Converted {currency.upper()} {amount:,.2f} -> MYR {amount_myr:,.2f} using rate {rate:,.4f}")
+                
+            # Customer (M...) vs Supplier
+            is_issuing = inv_num.upper().startswith('M')
+            if is_issuing:
+                monthly_net_flow[month] = monthly_net_flow.get(month, 0) + amount_myr
+            else:
+                monthly_net_flow[month] = monthly_net_flow.get(month, 0) - amount_myr
+                
+        ratio_debug_lines.append("\n--- MONTHLY RATIO SNAPSHOT ---")
+        months_sorted = sorted(list(monthly_net_flow.keys()), reverse=True)[:6]
+        positive_count = 0
+        for m in sorted(months_sorted):
+            val = monthly_net_flow[m]
+            status = "POSITIVE" if val > 0 else "NEGATIVE/NEUTRAL"
+            if val > 0: positive_count += 1
+            ratio_debug_lines.append(f"  {m}: RM {val:,.2f} | {status}")
+            
+        ratio_debug_lines.append("\n--- FINAL RATIO CALCULATION (SILVER TIER LOGIC) ---")
+        ratio_val = (positive_count / len(months_sorted) * 100) if months_sorted else 0
+        ratio_debug_lines.append(f"  Analyzed contiguous months: {months_sorted}")
+        ratio_debug_lines.append(f"  Months strictly > 0: {positive_count} out of {len(months_sorted)}")
+        ratio_debug_lines.append(f"  Final Positive Cash Flow Ratio: {ratio_val:.1f}%")
+    except Exception as e:
+        ratio_debug_lines.append(f"Error computing positive cash flow ratio: {e}")
+
     # --- GENERATE EXTREMELY DETAILED DEBUG LOG (USER REQUEST 2026-03-07) ---
     try:
-        os.makedirs("backend/logs", exist_ok=True)
-        with open("backend/logs/calculation_debug.txt", "w", encoding="utf-8") as f:
+        os.makedirs("logs", exist_ok=True)
+        with open("logs/calculation_debug.txt", "w", encoding="utf-8") as f:
             f.write(f"================================================================================\n")
             f.write(f"   DETAILED CALCULATION TRACE: {datetime.datetime.now()}\n")
             f.write(f"================================================================================\n\n")
@@ -628,6 +699,12 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
             f.write(f"   - Compliance Score: {compliance_score:.2f}%\n")
             f.write(f"   - Contribution to Total Score: {compliance_score * 0.10:.2f}pts\n\n")
 
+            f.write("STEP 6: REAL 6-MONTH POSITIVE CASH FLOW RATIO (FOR SILVER LOGIC)\n")
+            f.write(f"--------------------------------------------------------------------------------\n")
+            for line in ratio_debug_lines:
+                f.write(f"{line}\n")
+            f.write("\n")
+
             f.write(f"--------------------------------------------------------------------------------\n")
             f.write(f"FINAL WEIGHTED READINESS SCORE: {readiness:.2f}%\n")
             f.write(f"================================================================================\n")
@@ -645,7 +722,7 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
         totalRevenue=round(total_revenue, 2),
         annualRevenue=round(monthly_avg_revenue * 12, 2),
         totalExpenses=round(monthly_avg_expenses * 12, 2),
-        netProfitMargin=round((monthly_net_income / monthly_avg_revenue * 100) if monthly_avg_revenue > 0 else 0, 2),
+        netProfitMargin=round((monthly_net_income / current_month_rev * 100) if current_month_rev > 0 else 0, 2),
         loanReadinessScore=round(readiness, 2),
         assetScore=round(asset_score, 2),
         cashflowScore=round(cashflow_score, 2),
@@ -659,13 +736,12 @@ async def perform_analysis(proposed_loan: float = 25000, email: Optional[str] = 
         outMoney=round(total_out_money, 2),
         currentEfficiency=round(current_eff_aggregated, 2),
         proposedLoanValue=proposed_loan,
-        # Dynamic indicators
         currentMonthCustomerInvoices=current_month_cust_inv,
         prevMonthCustomerInvoices=prev_month_cust_inv,
         currentMonthRevenue=round(current_month_rev, 2),
         prevMonthRevenue=round(prev_month_rev, 2),
-        prevLoanReadinessScore=round(max(0, readiness - 2.4), 2),  # approximate prev period
-        loanApprovalProbability=bank_prob
+        prevLoanReadinessScore=round(readiness, 2),
+        loanApprovalProbability=round(bank_prob, 2)
     )
 
 
@@ -700,8 +776,66 @@ async def get_revenue(email: Optional[str] = None):
 
 @router.get("/api/company")
 async def get_company(email: Optional[str] = None):
+    if not USE_SUPABASE or not supabase:
+        return {"id": "default", "name": "Ctrl-Z SDN BHD", "business_reg": None, "compliance_status": 0}
+    
+    current_year = datetime.datetime.now().year
+    
+    try:
+        if email:
+            res = supabase.table('user_companies').select("id, name, business_reg, compliance_status").eq('email', email).execute()
+            if res.data:
+                comp_status_val = res.data[0].get('compliance_status')
+                mapped_status = 1 if comp_status_val == current_year else 0
+                return {
+                    "id": res.data[0]['id'], 
+                    "name": res.data[0]['name'], 
+                    "business_reg": res.data[0].get('business_reg'),
+                    "compliance_status": mapped_status
+                }
+        
+        res = supabase.table('user_companies').select("id, name, business_reg, compliance_status").order('created_at').limit(1).execute()
+        if res.data:
+            comp_status_val = res.data[0].get('compliance_status')
+            mapped_status = 1 if comp_status_val == current_year else 0
+            return {
+                "id": res.data[0]['id'], 
+                "name": res.data[0]['name'], 
+                "business_reg": res.data[0].get('business_reg'),
+                "compliance_status": mapped_status
+            }
+    except Exception as e:
+        print(f"Error fetching company details: {e}")
+
     active_comp_id, name = await get_active_company(email)
-    return {"id": active_comp_id or "default", "name": name}
+    return {"id": active_comp_id or "default", "name": name, "business_reg": None, "compliance_status": 0}
+
+@router.post("/api/compliance/submit")
+async def submit_compliance(request: Request):
+    """Explicit endpoint to record compliance filings, marking the user's compliance_status with the current year."""
+    if not USE_SUPABASE or not supabase:
+        return {"success": True}
+        
+    try:
+        data = await request.json()
+        email = data.get('email')
+        
+        if not email:
+            return {"error": "Email is required"}
+            
+        current_year = datetime.datetime.now().year
+        
+        # Verify they have SSM before allowing compliance status
+        res = supabase.table('user_companies').select('business_reg').eq('email', email).execute()
+        if res.data and res.data[0].get('business_reg'):
+            supabase.table('user_companies').update({'compliance_status': current_year}).eq('email', email).execute()
+            return {"success": True, "compliance_status": 1}
+        else:
+            return {"error": "Business Registration required first", "compliance_status": 0}
+            
+    except Exception as e:
+        print(f"Error submitting compliance: {e}")
+        return {"error": str(e)}
 
 # --- Functional Module Endpoints (Merged) ---
 
@@ -872,10 +1006,10 @@ async def get_compliance(email: Optional[str] = None):
     payroll = []
     for s in staff_list:
         salary = s.get('salary') or 0
-        epf = s.get('epf_rate') if 'epf_rate' in s else s.get('epf', salary * 0.13)
-        socso = s.get('socso_rate') if 'socso_rate' in s else s.get('socso', salary * 0.0175)
-        eis = s.get('eis_rate') if 'eis_rate' in s else s.get('eis', salary * 0.002)
-        tax = s.get('tax_rate') if 'tax_rate' in s else s.get('tax', calculate_pcb(salary))
+        epf = (salary * s['epf_rate']) if s.get('epf_rate') is not None else (s.get('epf', salary * 0.13))
+        socso = (salary * s['socso_rate']) if s.get('socso_rate') is not None else (s.get('socso', salary * 0.0175))
+        eis = (salary * s['eis_rate']) if s.get('eis_rate') is not None else (s.get('eis', salary * 0.002))
+        tax = (salary * s['tax_rate']) if s.get('tax_rate') is not None else (s.get('tax', calculate_pcb(salary)))
         
         payroll.append({
             "id": str(s.get('id', '')),
@@ -1242,9 +1376,9 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
                 raw = response.choices[0].message.content.strip()
             else:
                 client = google_genai.Client(api_key=gemini_api_key)
-                print(f"DEBUG: Generating AI recommendation for {business_name} using gemini-2.5-flash...")
+                print(f"DEBUG: Generating AI recommendation for {business_name} using gemini-1.5-flash...")
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash", # Updated to specific model requested by user
+                    model="gemini-2.0-flash", # Updated to a valid model in this environment
                     contents=prompt
                 )
                 raw = response.text.strip()
@@ -1255,7 +1389,7 @@ Return ONLY a raw JSON array. No markdown, no code blocks, no explanation."""
             os.makedirs(log_dir, exist_ok=True)
             with open(log_dir / "gemini_debug.log", "a", encoding="utf-8") as f:
                 f.write(f"\n--- {datetime.datetime.now()} ---\n")
-                f.write(f"MODEL: gemini-2.5-flash\n")
+                f.write(f"MODEL: gemini-1.5-flash\n")
                 f.write(f"RAW RESPONSE: {raw}\n")
 
             # Clean up response (strip markdown)

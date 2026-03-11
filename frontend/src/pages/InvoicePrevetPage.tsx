@@ -1,9 +1,8 @@
 import { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Upload, Database, FileJson, ArrowRight, RotateCcw, ShieldCheck, AlertTriangle, Sparkles, CheckCircle2 } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -130,9 +130,7 @@ export default function InvoicePrevetPage() {
         sourceFile = file?.name || "";
       } else {
         const selected = savedInvoices.find((s) => s.id === selectedSavedInvoiceId);
-        if (!selected) {
-          throw new Error("Selected saved JSON was not found");
-        }
+        if (!selected) throw new Error("Selected saved JSON was not found");
         invoice = selected.invoice;
         sourceFile = selected.source_file;
       }
@@ -178,198 +176,301 @@ export default function InvoicePrevetPage() {
 
   return (
     <div className="page-container" style={{ maxWidth: "1400px", width: "100%" }}>
-      <div className="page-header">
-        <div className="flex items-center gap-4">
-          <h1 className="page-title">Invoice Pre-vet</h1>
-          <Link to="/dashboard/hitl-review">
-            <Button variant="outline" size="sm">HITL Review →</Button>
-          </Link>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div className="page-header items-center mb-8">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="page-title">Invoice Pre-vet</h1>
+            <p className="page-subtitle">AHTN classification and tariff estimation</p>
+          </div>
         </div>
+        <Link to="/dashboard/hitl-review">
+          <Button variant="outline" className="premium-card px-5 py-2.5 h-auto shadow-sm hover:shadow-md transition-all flex items-center gap-2 font-semibold">
+            HITL Review <ArrowRight className="w-4 h-4" />
+          </Button>
+        </Link>
       </div>
 
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold mb-1">Invoice Source</h2>
-          <p className="page-subtitle">
-            Choose a local JSON file or select a previously saved JSON from Supabase. The system will classify line items against AHTN, calculate tariffs, and flag items for human review.
-          </p>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ── Left Panel ─────────────────────────────────────────────── */}
+        <div className="lg:col-span-4 space-y-5">
 
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <h3 className="text-base font-semibold">Select Input Method</h3>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={sourceType === "upload" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setSourceType("upload");
-                  setError(null);
-                }}
-              >
-                Upload JSON File
-              </Button>
-              <Button
-                variant={sourceType === "supabase" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  setSourceType("supabase");
-                  setFile(null);
-                  setError(null);
-                  fetchSavedInvoices();
-                }}
-              >
-                Use Saved OCR JSON
-              </Button>
+          {/* Source Type Selector */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3 px-1">Invoice Source</p>
+            {/* Pill toggle row */}
+            <div className="flex rounded-2xl border border-border bg-muted/30 p-1 gap-1">
+              {[
+                { type: "upload" as const, icon: <Upload size={15} />, label: "Upload JSON", sub: "Local file" },
+                { type: "supabase" as const, icon: <Database size={15} />, label: "OCR Queue", sub: "Supabase" },
+              ].map(({ type, icon, label, sub }) => (
+                <button
+                  key={type}
+                  onClick={() => { setSourceType(type); setError(null); if (type === "supabase") fetchSavedInvoices(); if (type === "upload") setFile(null); }}
+                  className={`flex-1 flex items-center justify-center gap-2.5 py-3 px-3 rounded-xl transition-all duration-200 active:scale-95 ${
+                    sourceType === type
+                      ? "bg-white dark:bg-card shadow-md text-primary font-bold border border-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-card/50"
+                  }`}
+                >
+                  <span className={`shrink-0 p-1 rounded-lg ${
+                    sourceType === type ? "bg-primary/10 text-primary" : "text-muted-foreground/60"
+                  }`}>{icon}</span>
+                  <span className="text-left">
+                    <p className="text-xs font-bold leading-tight">{label}</p>
+                    <p className="text-[9px] opacity-50 leading-none mt-0.5">{sub}</p>
+                  </span>
+                </button>
+              ))}
             </div>
+          </div>
 
-            {sourceType === "upload" ? (
-              <div className="rounded-lg border border-dashed p-4">
-                <Label htmlFor="invoice-file" className="text-sm">Invoice JSON File</Label>
-                <Input
-                  id="invoice-file"
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleFileChange}
-                  className="mt-2 cursor-pointer"
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  {file ? `Selected: ${file.name}` : "Upload a valid invoice JSON file."}
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg border p-4 space-y-3">
-                <Label htmlFor="saved-json-select" className="text-sm">Saved OCR/Supabase JSON</Label>
-                <div className="flex gap-2 items-center">
-                  <select
-                    id="saved-json-select"
-                    value={selectedSavedInvoiceId}
-                    onChange={(e) => {
-                      setSelectedSavedInvoiceId(e.target.value);
-                      setResult(null);
-                      setError(null);
-                    }}
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                    disabled={loadingSavedInvoices}
+          {/* Input Area Card */}
+          <Card className="premium-card shadow-sm">
+            <CardContent className="p-5 space-y-4">
+              {sourceType === "upload" ? (
+                <div>
+                  <input
+                    id="invoice-file"
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="invoice-file"
+                    className={`flex flex-col items-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all hover:border-primary/40 hover:bg-primary/2 ${
+                      file ? "border-green-400 bg-green-50/20" : "border-muted-foreground/20 bg-muted/20"
+                    }`}
                   >
-                    <option value="">
-                      {loadingSavedInvoices ? "Loading saved JSON..." : "Choose saved JSON from Supabase"}
-                    </option>
-                    {savedInvoices.map((inv) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.source_file}
-                        {inv.created_at ? ` (${new Date(inv.created_at).toLocaleString()})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <Button variant="outline" onClick={fetchSavedInvoices} disabled={loadingSavedInvoices}>
-                    {loadingSavedInvoices ? "Refreshing…" : "Refresh"}
-                  </Button>
+                    <div className={`p-3 rounded-full ${file ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary"}`}>
+                      {file ? <CheckCircle2 size={24} /> : <FileJson size={24} />}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold">{file ? file.name : "Click to select invoice JSON"}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{file ? `${(file.size / 1024).toFixed(1)} KB` : "Supports .json files"}</p>
+                    </div>
+                  </label>
                 </div>
-                {!loadingSavedInvoices && savedInvoices.length === 0 && (
-                  <p className="text-sm text-muted-foreground">
-                    No saved JSON found yet in Supabase.
-                  </p>
+              ) : (
+                <div className="space-y-3">
+                  <Label htmlFor="saved-json-select" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    Target Invoice
+                  </Label>
+                  <div className="flex gap-2">
+                    <select
+                      id="saved-json-select"
+                      value={selectedSavedInvoiceId}
+                      onChange={(e) => { setSelectedSavedInvoiceId(e.target.value); setResult(null); setError(null); }}
+                      className="h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                      disabled={loadingSavedInvoices}
+                    >
+                      <option value="">{loadingSavedInvoices ? "Loading..." : "Select from Supabase"}</option>
+                      {savedInvoices.map((inv) => (
+                        <option key={inv.id} value={inv.id}>
+                          {inv.source_file.replace(/^invoices\//, "").replace(/\.json$/, "")}
+                        </option>
+                      ))}
+                    </select>
+                    <Button variant="outline" size="icon" onClick={fetchSavedInvoices} disabled={loadingSavedInvoices} className="h-10 w-10 shrink-0">
+                      <RotateCcw className={`w-4 h-4 ${loadingSavedInvoices ? "animate-spin" : ""}`} />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2 pt-1">
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading || (sourceType === "upload" && !file) || (sourceType === "supabase" && !selectedSavedInvoiceId)}
+                  className={`w-full h-12 rounded-2xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2.5 ${
+                    loading || (sourceType === "upload" && !file) || (sourceType === "supabase" && !selectedSavedInvoiceId)
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-gradient-to-r from-indigo-500 via-primary to-violet-500 text-white shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:scale-[1.02] active:scale-95"
+                  }`}
+                >
+                  {loading ? (
+                    <><RotateCcw className="w-4 h-4 animate-spin" /> Analyzing...</>
+                  ) : (
+                    <><Sparkles className="w-4 h-4" /> Analyze &amp; Pre-vet</>
+                  )}
+                </button>
+                {(file || selectedSavedInvoiceId || result) && (
+                  <button onClick={handleReset} className="w-full text-xs text-muted-foreground hover:text-destructive py-1.5 transition-colors">
+                    Clear Selection
+                  </button>
                 )}
               </div>
-            )}
 
-            <div className="flex gap-3 pt-1">
-              <Button
-                onClick={handleSubmit}
-                disabled={
-                  loading ||
-                  (sourceType === "upload" && !file) ||
-                  (sourceType === "supabase" && !selectedSavedInvoiceId)
-                }
-              >
-                {loading ? "Processing…" : "Pre-vet Invoice"}
-              </Button>
-              {(file || selectedSavedInvoiceId || result) && (
-                <Button variant="outline" onClick={handleReset}>Reset</Button>
+              {error && (
+                <Alert variant="destructive" className="bg-destructive/5 text-destructive border-destructive/20">
+                  <AlertDescription className="flex items-center gap-2 text-xs">
+                    <AlertTriangle size={13} /> {error}
+                  </AlertDescription>
+                </Alert>
               )}
-            </div>
+            </CardContent>
+          </Card>
 
-            {error && (
-              <Alert variant="destructive" className="mt-4">
-                <AlertDescription>⚠ {error}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+          {/* Info hint */}
+          {!result && (
+            <p className="text-center text-xs text-muted-foreground/60 px-2">
+              Upload a JSON file or pick from the HITL queue to classify AHTN codes and estimate tariffs.
+            </p>
+          )}
+        </div>
 
-        {result && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Results</CardTitle>
-              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mt-2">
-                <span>Invoice: <strong className="text-foreground">{result.invoice_id}</strong></span>
-                <span>Total tariff: <strong className="text-foreground">{result.total_tariff.toFixed(2)}</strong></span>
-                <span>
-                  HITL required:{" "}
-                  <Badge variant={result.any_requires_hitl ? "destructive" : "secondary"} className={result.any_requires_hitl ? "bg-amber-100 text-amber-800" : ""}>
-                    {result.any_requires_hitl ? "Yes" : "No"}
-                  </Badge>
-                </span>
+        {/* ── Right Panel ────────────────────────────────────────────── */}
+        <div className="lg:col-span-8">
+          {result ? (
+            <div className="space-y-5">
+              {/* KPI Row */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="premium-card shadow-sm">
+                  <CardContent className="p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Est. Total Tariff</p>
+                    <p className="text-2xl font-bold mt-2 tabular-nums">
+                      RM {result.total_tariff.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className={`premium-card shadow-sm ${result.any_requires_hitl ? "border-amber-300 bg-amber-50/20" : "border-green-300 bg-green-50/20"}`}>
+                  <CardContent className="p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">HITL Status</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <p className={`text-lg font-bold leading-tight ${result.any_requires_hitl ? "text-amber-700" : "text-green-700"}`}>
+                        {result.any_requires_hitl ? "Review Required" : "Auto-Approved"}
+                      </p>
+                      <Badge className={result.any_requires_hitl ? "bg-amber-100 text-amber-800 border-amber-200" : "bg-green-100 text-green-800 border-green-200"}>
+                        {result.any_requires_hitl ? "Action" : "Pass"}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="premium-card shadow-sm">
+                  <CardContent className="p-5">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Line Items</p>
+                    <p className="text-2xl font-bold mt-2 tabular-nums">{result.line_items.length} <span className="text-sm font-normal text-muted-foreground">items</span></p>
+                  </CardContent>
+                </Card>
               </div>
+
+              {/* Flags */}
               {result.all_flags.length > 0 && (
-                <div className="mt-4 p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm">
-                  <strong>Flags:</strong>
-                  <ul className="mt-2 list-disc pl-5 text-amber-800">
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 shadow-sm">
+                  <div className="flex items-center gap-2 font-bold text-amber-900 text-sm mb-2">
+                    <AlertTriangle size={15} /> Compliance & Classification Flags
+                  </div>
+                  <ul className="space-y-1 ml-6 list-disc">
                     {result.all_flags.map((f, i) => (
-                      <li key={i}>⚠ {f}</li>
+                      <li key={i} className="text-xs text-amber-800">{f}</li>
                     ))}
                   </ul>
                 </div>
               )}
-            </CardHeader>
-            <CardContent>
-              <h4 className="font-medium mb-4">Line items</h4>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>AHTN Code</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>Tariff</TableHead>
-                    <TableHead>Sim</TableHead>
-                    <TableHead>HITL</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {result.line_items.map((item) => (
-                    <TableRow key={item.item_id} className={item.requires_hitl ? "bg-amber-50/50" : ""}>
-                      <TableCell>{item.item_id}</TableCell>
-                      <TableCell>
-                        <span className="block max-w-[200px] truncate">{item.description}</span>
-                        {item.flags.length > 0 && (
-                          <ul className="mt-1 text-xs text-amber-700 list-disc pl-4">
-                            {item.flags.map((f, i) => (
-                              <li key={i}>⚠ {f}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">{item.ahtn_code}</code>
-                        {item.ahtn_description && (
-                          <span className="block text-xs text-muted-foreground mt-1 max-w-[180px] truncate">
-                            {item.ahtn_description.length > 40 ? `${item.ahtn_description.slice(0, 40)}…` : item.ahtn_description}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{item.tariff_rate}</TableCell>
-                      <TableCell>{item.tariff_amount.toFixed(2)}</TableCell>
-                      <TableCell>{(item.similarity * 100).toFixed(0)}%</TableCell>
-                      <TableCell>{item.requires_hitl ? <Badge variant="destructive" className="text-xs">Yes</Badge> : "—"}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
+
+              {/* AHTN Table */}
+              <Card className="premium-card shadow-md overflow-hidden">
+                <CardHeader className="border-b bg-muted/20 py-4 px-6">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold">AHTN Classification Details</CardTitle>
+                    <span className="text-xs text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-full font-mono">#{result.invoice_id}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-muted/20">
+                        <TableRow>
+                          <TableHead className="w-[44px] pl-6 text-[10px] uppercase font-bold">#</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold min-w-[200px]">Product Description</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold min-w-[140px]">AHTN Code</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold text-right">Tax Rate</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold text-right">Duty (RM)</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold text-center">Confidence</TableHead>
+                          <TableHead className="text-[10px] uppercase font-bold pr-6 text-center">HITL</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.line_items.map((item) => (
+                          <TableRow key={item.item_id} className={`transition-colors ${item.requires_hitl ? "bg-amber-50/50 hover:bg-amber-50/70" : "hover:bg-muted/20"}`}>
+                            <TableCell className="pl-6 font-mono text-xs text-muted-foreground/60 font-bold">{item.item_id}</TableCell>
+                            <TableCell>
+                              <div className="space-y-1.5 py-2">
+                                <span className="font-semibold text-sm block">{item.description}</span>
+                                {item.flags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.flags.map((f, i) => (
+                                      <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200 font-bold flex items-center gap-1">
+                                        <AlertTriangle size={7} /> {f}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-1 py-1">
+                                <code className="text-[10px] font-mono font-bold bg-primary/5 text-primary border border-primary/20 px-2 py-0.5 rounded-md w-fit">{item.ahtn_code}</code>
+                                <span className="text-[9px] text-muted-foreground max-w-[150px] truncate" title={item.ahtn_description}>{item.ahtn_description}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-xs">{item.tariff_rate}</TableCell>
+                            <TableCell className="text-right font-bold tabular-nums text-sm">{item.tariff_amount.toFixed(2)}</TableCell>
+                            <TableCell>
+                              <div className="flex flex-col items-center gap-1">
+                                <span className={`text-xs font-bold ${(item.similarity * 100) < 60 ? "text-amber-600" : "text-green-600"}`}>
+                                  {(item.similarity * 100).toFixed(0)}%
+                                </span>
+                                <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${item.similarity > 0.8 ? "bg-green-500" : item.similarity > 0.6 ? "bg-amber-500" : "bg-red-500"}`}
+                                    style={{ width: `${item.similarity * 100}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="pr-6 text-center">
+                              {item.requires_hitl ? (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[9px] px-2 py-0 font-bold">REVIEW</Badge>
+                              ) : (
+                                <CheckCircle2 size={15} className="text-green-500 mx-auto" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            /* Empty State */
+            <div className="h-full min-h-[480px] flex flex-col items-center justify-center text-center p-10 bg-card rounded-2xl border-2 border-dashed border-muted-foreground/20">
+              <div className="relative mb-6">
+                <div className="w-20 h-20 rounded-3xl bg-muted/30 flex items-center justify-center">
+                  <FileJson size={36} className="text-muted-foreground/30" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                  <ShieldCheck size={12} className="text-primary" />
+                </div>
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Ready for Analysis</h3>
+              <p className="max-w-[280px] mt-2 text-sm text-muted-foreground leading-relaxed">
+                Select an invoice source on the left to begin the AHTN pre-vetting process.
+              </p>
+              <div className="mt-8 flex flex-col gap-2 text-xs text-muted-foreground/50">
+                <div className="flex items-center gap-2"><ShieldCheck size={12} /> AHTN code classification</div>
+                <div className="flex items-center gap-2"><CheckCircle2 size={12} /> Tariff rate estimation</div>
+                <div className="flex items-center gap-2"><AlertTriangle size={12} /> Compliance flag detection</div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

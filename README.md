@@ -20,6 +20,7 @@ npm install
 ```bash
 cd backend
 source .venv/bin/activate
+powershell activation(.\.venv\Scripts\Activate.ps1 )
 python3 -m scripts.pillar2.build_ahtn_vector_db
 ```
 

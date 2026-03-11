@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertCircle } from 'lucide-react';
-
-const PYTHON_API_BASE = 'http://127.0.0.1:8000/api';
+import { useApiFetch } from '../../../hooks/useApiFetch';
 
 const CTOSAnalysis = () => {
+    const apiFetch = useApiFetch();
     const [isRetrieving, setIsRetrieving] = useState(false);
     const [report, setReport] = useState<any>(null);
 
     const handleRetrieve = () => {
         setIsRetrieving(true);
-        fetch(`${PYTHON_API_BASE}/ctos`)
-            .then(res => res.json())
+        apiFetch(`/api/ctos`)
             .then(data => {
                 setReport(data);
                 setIsRetrieving(false);

@@ -19,12 +19,12 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
-        print("✅ Instagram: Gemini client initialized")
+        print("[v] Instagram: Gemini client initialized")
     except Exception as e:
-        print(f"❌ Instagram: Failed to initialize Gemini client: {e}")
+        print(f"[x] Instagram: Failed to initialize Gemini client: {e}")
         client = None
 else:
-    print("⚠️ Instagram: No Gemini API key found, using fallback only")
+    print("[!] Instagram: No Gemini API key found, using fallback only")
     client = None
 
 # Import shared Supabase client
@@ -34,9 +34,9 @@ USE_SUPABASE = os.getenv("USE_SUPABASE", "false").lower() == "true"
 if USE_SUPABASE:
     try:
         supabase.table("instagram_comments").select("*").limit(1).execute()
-        print("✅ Instagram: Supabase connected")
+        print("[v] Instagram: Supabase connected")
     except Exception as e:
-        print(f"❌ Instagram: Supabase connection failed: {e}")
+        print(f"[x] Instagram: Supabase connection failed: {e}")
         supabase = None
 else:
     supabase = None
@@ -119,9 +119,9 @@ def init_instagram_posts():
                         "sentiment": None,
                         "ai_reply": None
                     }).execute()
-            print("✅ Instagram: Sample posts and comments stored in Supabase")
+            print("[v] Instagram: Sample posts and comments stored in Supabase")
     except Exception as e:
-        print(f"❌ Instagram: Failed to store sample posts: {e}")
+        print(f"[x] Instagram: Failed to store sample posts: {e}")
 
 # Call it at module load
 init_instagram_posts()
@@ -186,7 +186,7 @@ Reply ONLY with JSON, no other text.
 """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-2.0-flash',
             contents=prompt
         )
         raw = response.text.strip()

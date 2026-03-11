@@ -44,6 +44,8 @@ const NAV_ITEMS: NavItem[] = [
       { to: "/dashboard/invoices", label: "Invoices" },
       { to: "/dashboard/payments", label: "Payments" },
       { to: "/dashboard/scan-receipt", label: "Scan Receipts" },
+      { to: "/dashboard/invoice-prevet", label: "Invoice Pre-vet" },
+      { to: "/dashboard/hitl-review", label: "HITL Review" },
     ],
   },
   {
@@ -58,12 +60,11 @@ const NAV_ITEMS: NavItem[] = [
     label: "Credits and Compliance",
     icon: ShieldCheck,
     children: [
+      { to: "/dashboard/passport", label: "Regional Passport" },
       { to: "/dashboard/readiness", label: "Readiness" },
       { to: "/dashboard/ctos", label: "AI CTOS" },
       { to: "/dashboard/registry", label: "Registry" },
       { to: "/dashboard/compliance", label: "Compliance" },
-      { to: "/dashboard/invoice-prevet", label: "Invoice Pre-vet" },
-      { to: "/dashboard/hitl-review", label: "HITL Review" },
     ],
   },
   { to: "/dashboard/whatsapp", icon: MessageSquare, label: "WhatsApp Sandbox" },

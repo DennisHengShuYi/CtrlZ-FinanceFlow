@@ -14,6 +14,7 @@ import ReadinessPage from "./pages/FintechOS/ReadinessPage";
 import CTOSPage from "./pages/FintechOS/CTOSPage";
 import RegistryPage from "./pages/FintechOS/RegistryPage";
 import CompliancePage from "./pages/FintechOS/CompliancePage";
+import PassportPage from "./pages/FintechOS/PassportPage";
 import InvoicePrevetPage from "./pages/InvoicePrevetPage";
 import HITLReviewPage from "./pages/HITLReviewPage";
 
@@ -67,14 +68,9 @@ export default function App() {
         <Route
           path="invoice-prevet"
           element={
-            <>
-              <SignedIn>
-                <InvoicePrevetPage />
-              </SignedIn>
-              <SignedOut>
-                <Navigate to="/" replace />
-              </SignedOut>
-            </>
+            <ProtectedRoute>
+              <InvoicePrevetPage />
+            </ProtectedRoute>
           }
         />
 
@@ -82,14 +78,9 @@ export default function App() {
         <Route
           path="hitl-review"
           element={
-            <>
-              <SignedIn>
-                <HITLReviewPage />
-              </SignedIn>
-              <SignedOut>
-                <Navigate to="/" replace />
-              </SignedOut>
-            </>
+            <ProtectedRoute>
+              <HITLReviewPage />
+            </ProtectedRoute>
           }
         />
 
@@ -103,6 +94,7 @@ export default function App() {
         <Route path="ctos" element={<CTOSPage />} />
         <Route path="registry" element={<RegistryPage />} />
         <Route path="compliance" element={<CompliancePage />} />
+        <Route path="passport" element={<PassportPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>

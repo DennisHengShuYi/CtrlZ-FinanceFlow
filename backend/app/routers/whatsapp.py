@@ -758,7 +758,7 @@ async def unified_webhook(
                 return {
                     "status": "complete",
                     "action_type": "supplier_invoice_negotiate",
-                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n⚠️ {evaluation.get('reason', 'Budget is tight.')}\n\nRecommended counter-offer:\n{negotiation_msg}",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n[!] {evaluation.get('reason', 'Budget is tight.')}\n\nRecommended counter-offer:\n{negotiation_msg}",
                     "invoice_number": invoice["invoice_number"],
                     "invoice": invoice,
                     "evaluation": evaluation,
@@ -769,7 +769,7 @@ async def unified_webhook(
                 return {
                     "status": "complete",
                     "action_type": "supplier_invoice_negotiate",
-                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n🚫 {evaluation.get('reason', 'Insufficient funds to pay this bill.')}\n\nPayment has been deferred. Please review your cash flow before proceeding.",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n[x] {evaluation.get('reason', 'Insufficient funds to pay this bill.')}\n\nPayment has been deferred. Please review your cash flow before proceeding.",
                     "invoice_number": invoice["invoice_number"],
                     "invoice": invoice,
                     "evaluation": evaluation,
@@ -780,7 +780,7 @@ async def unified_webhook(
                 return {
                     "status": "complete",
                     "action_type": "supplier_invoice_approved",
-                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n✅ {evaluation.get('reason', 'Finances are healthy.')}\n\nThis bill has been auto-approved for payment.",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n[v] {evaluation.get('reason', 'Finances are healthy.')}\n\nThis bill has been auto-approved for payment.",
                     "invoice_number": invoice["invoice_number"],
                     "invoice": invoice,
                     "evaluation": evaluation,

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
-
-const PYTHON_API_BASE = 'http://127.0.0.1:8000/api';
+import { useApiFetch } from '../../../hooks/useApiFetch';
 
 const TaxCompliance = () => {
     const { user } = useUser();
+    const apiFetch = useApiFetch();
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -14,6 +14,7 @@ const TaxCompliance = () => {
     const [isReviewingSSM, setIsReviewingSSM] = useState(false);
     const [companyName, setCompanyName] = useState('Ctrl-Z SDN BHD');
     const [ssmReviewData, setSsmReviewData] = useState<any>(null);
+    const [businessReg, setBusinessReg] = useState<string | null>(null);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -22,14 +23,17 @@ const TaxCompliance = () => {
             const email = user?.primaryEmailAddress?.emailAddress || '';
             const ts = Date.now();
             try {
-                const [complianceRes, companyRes] = await Promise.all([
-                    fetch(`${PYTHON_API_BASE}/compliance?t=${ts}&email=${encodeURIComponent(email)}`),
-                    fetch(`${PYTHON_API_BASE}/company?t=${ts}&email=${encodeURIComponent(email)}`)
+                const [compData, company] = await Promise.all([
+                    apiFetch(`/api/compliance?t=${ts}&email=${encodeURIComponent(email)}`),
+                    apiFetch(`/api/company?t=${ts}&email=${encodeURIComponent(email)}`)
                 ]);
-                if (!complianceRes.ok || !companyRes.ok) throw new Error('API error');
-                const [compData, company] = await Promise.all([complianceRes.json(), companyRes.json()]);
                 setData(compData);
                 setCompanyName(company.name || 'Ctrl-Z SDN BHD');
+                setBusinessReg(company.business_reg || null);
+                if (company.compliance_status === 1) {
+                    setIsAnnualSubmitted(true);
+                    setIsSSMSubmitted(true);
+                }
             } catch (err: any) {
                 setError('Could not load compliance data. Is the backend running?');
             } finally {
@@ -39,12 +43,12 @@ const TaxCompliance = () => {
         fetchData();
     }, [user]);
 
-    const handleAnnualSubmit = () => {
+    const handleAnnualSubmit = async () => {
         setIsAnnualSubmitted(true);
-        fetch(`${PYTHON_API_BASE}/ssm/register`, {
+        const email = user?.primaryEmailAddress?.emailAddress || '';
+        await apiFetch(`/api/compliance/submit`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'annual_tax', revenue: data.total_revenue }),
+            body: JSON.stringify({ email: email, type: 'annual_tax' }),
         });
     };
 
@@ -61,13 +65,13 @@ const TaxCompliance = () => {
         setIsReviewingSSM(true);
     };
 
-    const handleSSMReturnFinal = () => {
+    const handleSSMReturnFinal = async () => {
         setIsSSMSubmitted(true);
         setIsReviewingSSM(false);
-        fetch(`${PYTHON_API_BASE}/ssm/annual-return`, {
+        const email = user?.primaryEmailAddress?.emailAddress || '';
+        await apiFetch(`/api/compliance/submit`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ssmReviewData),
+            body: JSON.stringify({ email: email, type: 'ssm_annual_return' }),
         });
     };
 
@@ -182,57 +186,71 @@ const TaxCompliance = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px,1fr) 2fr', gap: '2rem', marginBottom: '2rem' }}>
                 {/* Left: Tax note + actions */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    <div style={{ padding: '1rem', background: '#fafafa', borderRadius: '8px', border: '1px solid oklch(0.92 0 0)', fontSize: '0.75rem', color: 'oklch(0.44 0 0)', lineHeight: 1.6 }}>
-                        <div style={{ fontWeight: 600, color: '#000', marginBottom: '0.4rem' }}>SME Tiered Calculation</div>
-                        • First RM 150k @ 15%<br />
-                        • Next RM 450k @ 17%<br />
-                        • Balance @ 24%<br />
-                        <div style={{ marginTop: '0.5rem', opacity: 0.8 }}>
-                            Annualized Profit Est.: RM {((data.metrics?.estimated_annual_profit) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                        <button className="fintech-btn fintech-btn-primary" style={{ width: '100%', height: '2.5rem' }} onClick={handleAnnualSubmit} disabled={isAnnualSubmitted}>
-                            {isAnnualSubmitted ? 'Form C Submitted ✓' : 'Submit Annual Form C'}
-                        </button>
-                        <button className="fintech-btn fintech-btn-secondary" style={{ width: '100%', height: '2.5rem' }} onClick={downloadPDF}>
-                            Download Tax Filing (PDF)
-                        </button>
-
-                        <div style={{ padding: '0.875rem', background: '#fafafa', borderRadius: '8px', border: '1px solid oklch(0.92 0 0)', marginTop: '0.25rem' }}>
-                            <div style={{ fontSize: '0.6875rem', color: 'oklch(0.44 0 0)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>SSM Annual Return</div>
-                            {isReviewingSSM ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.6rem', color: 'oklch(0.44 0 0)', marginBottom: '0.25rem' }}>Company Name</label>
-                                        <input
-                                            style={{ width: '100%', padding: '0.4rem', border: '1px solid oklch(0.92 0 0)', borderRadius: '4px', fontSize: '0.75rem', background: '#fff', boxSizing: 'border-box' }}
-                                            value={ssmReviewData.companyName}
-                                            onChange={(e) => setSsmReviewData({ ...ssmReviewData, companyName: e.target.value })}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.6rem', color: 'oklch(0.44 0 0)', marginBottom: '0.25rem' }}>Turnover (RM)</label>
-                                        <input
-                                            style={{ width: '100%', padding: '0.4rem', border: '1px solid oklch(0.92 0 0)', borderRadius: '4px', fontSize: '0.75rem', background: '#fff', boxSizing: 'border-box' }}
-                                            value={ssmReviewData.turnover}
-                                            type="number"
-                                            onChange={(e) => setSsmReviewData({ ...ssmReviewData, turnover: parseFloat(e.target.value) })}
-                                        />
-                                    </div>
-                                    <button className="fintech-btn fintech-btn-primary" style={{ width: '100%' }} onClick={handleSSMReturnFinal}>
-                                        File Final Return
-                                    </button>
+                    {businessReg ? (
+                        <>
+                            <div style={{ padding: '1rem', background: '#fafafa', borderRadius: '8px', border: '1px solid oklch(0.92 0 0)', fontSize: '0.75rem', color: 'oklch(0.44 0 0)', lineHeight: 1.6 }}>
+                                <div style={{ fontWeight: 600, color: '#000', marginBottom: '0.4rem' }}>SME Tiered Calculation</div>
+                                • First RM 150k @ 15%<br />
+                                • Next RM 450k @ 17%<br />
+                                • Balance @ 24%<br />
+                                <div style={{ marginTop: '0.5rem', opacity: 0.8 }}>
+                                    Annualized Profit Est.: RM {((data.metrics?.estimated_annual_profit) ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </div>
-                            ) : (
-                                <button className="fintech-btn fintech-btn-secondary" style={{ width: '100%', fontSize: '0.75rem' }} onClick={handleSSMReturnReview} disabled={isSSMSubmitted}>
-                                    {isSSMSubmitted ? 'SSM Return Filed ✓' : 'Review & File Return (SSM)'}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                                <button className="fintech-btn fintech-btn-primary" style={{ width: '100%', height: '2.5rem' }} onClick={handleAnnualSubmit} disabled={isAnnualSubmitted}>
+                                    {isAnnualSubmitted ? 'Form C Submitted ✓' : 'Submit Annual Form C'}
                                 </button>
-                            )}
-                            <p style={{ marginTop: '0.5rem', fontSize: '0.6rem', color: 'oklch(0.55 0 0)' }}>Due within 30 days from anniversary.</p>
+                                <button className="fintech-btn fintech-btn-secondary" style={{ width: '100%', height: '2.5rem' }} onClick={downloadPDF}>
+                                    Download Tax Filing (PDF)
+                                </button>
+
+                                <div style={{ padding: '0.875rem', background: '#fafafa', borderRadius: '8px', border: '1px solid oklch(0.92 0 0)', marginTop: '0.25rem' }}>
+                                    <div style={{ fontSize: '0.6875rem', color: 'oklch(0.44 0 0)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.5rem' }}>SSM Annual Return</div>
+                                    {isReviewingSSM ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.6rem', color: 'oklch(0.44 0 0)', marginBottom: '0.25rem' }}>Company Name</label>
+                                                <input
+                                                    style={{ width: '100%', padding: '0.4rem', border: '1px solid oklch(0.92 0 0)', borderRadius: '4px', fontSize: '0.75rem', background: '#fff', boxSizing: 'border-box' }}
+                                                    value={ssmReviewData.companyName}
+                                                    onChange={(e) => setSsmReviewData({ ...ssmReviewData, companyName: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: '0.6rem', color: 'oklch(0.44 0 0)', marginBottom: '0.25rem' }}>Turnover (RM)</label>
+                                                <input
+                                                    style={{ width: '100%', padding: '0.4rem', border: '1px solid oklch(0.92 0 0)', borderRadius: '4px', fontSize: '0.75rem', background: '#fff', boxSizing: 'border-box' }}
+                                                    value={ssmReviewData.turnover}
+                                                    type="number"
+                                                    onChange={(e) => setSsmReviewData({ ...ssmReviewData, turnover: parseFloat(e.target.value) })}
+                                                />
+                                            </div>
+                                            <button className="fintech-btn fintech-btn-primary" style={{ width: '100%' }} onClick={handleSSMReturnFinal}>
+                                                File Final Return
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button className="fintech-btn fintech-btn-secondary" style={{ width: '100%', fontSize: '0.75rem' }} onClick={handleSSMReturnReview} disabled={isSSMSubmitted}>
+                                            {isSSMSubmitted ? 'SSM Return Filed ✓' : 'Review & File Return (SSM)'}
+                                        </button>
+                                    )}
+                                    <p style={{ marginTop: '0.5rem', fontSize: '0.6rem', color: 'oklch(0.55 0 0)' }}>Due within 30 days from anniversary.</p>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1rem', background: '#fffbeb', borderRadius: '8px', border: '1px solid #fef08a', textAlign: 'center', height: '100%' }}>
+                            <div style={{ width: 48, height: 48, background: '#fef9c3', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
+                                <span style={{ fontSize: '1.5rem' }}>🏢</span>
+                            </div>
+                            <h4 style={{ fontSize: '0.9rem', fontWeight: 650, color: '#854d0e', marginBottom: '0.5rem' }}>Registration Required</h4>
+                            <p style={{ fontSize: '0.75rem', color: '#a16207', maxWidth: '250px', lineHeight: 1.5 }}>
+                                Tax and statutory submissions are locked until your business possesses a valid SSM registration number. Please initiate registration via the Registry module.
+                            </p>
                         </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Right: Payroll table */}

@@ -3,16 +3,18 @@ import { useUser } from '@clerk/clerk-react';
 import { motion } from 'framer-motion';
 import { Zap, Mail, CheckCircle2, FileText, Users, DollarSign, Paperclip } from 'lucide-react';
 import { sendThresholdAlertEmail } from '../services/emailService';
-import { mockEInvoiceData } from '../utils/mockData';
-
-const PYTHON_API_BASE = 'http://127.0.0.1:8000/api';
+import { useApiFetch } from '../../../hooks/useApiFetch';
 
 const BusinessRegistration = () => {
     const { user } = useUser();
+    const apiFetch = useApiFetch();
     const [accepted, setAccepted] = useState(false);
     const [isEmailSent, setIsEmailSent] = useState(false);
     const [lastDispatch, setLastDispatch] = useState<string | null>(null);
     const [ssmResult, setSsmResult] = useState<any>(null);
+    const [businessReg, setBusinessReg] = useState<string | null>(null);
+    const [totalRevenue, setTotalRevenue] = useState<number>(0);
+    const [isLoading, setIsLoading] = useState(true);
     const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
 
     const [form, setForm] = useState({
@@ -33,14 +35,17 @@ const BusinessRegistration = () => {
             const email = user?.primaryEmailAddress?.emailAddress || '';
             const ts = Date.now();
             try {
-                const [staffRes, compRes, anaRes] = await Promise.all([
-                    fetch(`${PYTHON_API_BASE}/staff/directors?t=${ts}&email=${encodeURIComponent(email)}`),
-                    fetch(`${PYTHON_API_BASE}/company?t=${ts}&email=${encodeURIComponent(email)}`),
-                    fetch(`${PYTHON_API_BASE}/analysis?t=${ts}&email=${encodeURIComponent(email)}`)
+                const [staffData, analysisData, companyData] = await Promise.all([
+                    apiFetch(`/api/staff/directors?t=${ts}`),
+                    apiFetch(`/api/analysis?t=${ts}`),
+                    apiFetch(`/api/company?t=${ts}&email=${encodeURIComponent(email)}`)
                 ]);
-                const staffData = await staffRes.json();
-                const companyData = await compRes.json();
-                const analysisData = await anaRes.json();
+
+                if (companyData?.business_reg) {
+                    setBusinessReg(companyData.business_reg);
+                    setIsLoading(false);
+                    return;
+                }
 
                 setForm(f => ({
                     ...f,
@@ -63,21 +68,26 @@ const BusinessRegistration = () => {
                         director2Shares: d2.shares?.toString() || '40',
                     }));
                 }
+
+                setBusinessReg(companyData.business_reg || null);
+                setTotalRevenue(analysisData.totalRevenue || 0);
             } catch (err) {
                 console.error('Failed to fetch context:', err);
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchContext();
     }, [user]);
 
     React.useEffect(() => {
-        if (!isEmailSent) {
+        if (!isLoading && !businessReg && totalRevenue >= 500000 && !isEmailSent) {
             const triggerEmail = async () => {
                 try {
                     await sendThresholdAlertEmail({
                         to: 'admin@techlance.my',
                         subject: 'URGENT: SSM Registration Required — RM 500k Milestone',
-                        revenue: mockEInvoiceData.totalRevenue
+                        revenue: totalRevenue // use actual revenue
                     });
                     setIsEmailSent(true);
                     setLastDispatch(new Date().toLocaleTimeString());
@@ -87,20 +97,61 @@ const BusinessRegistration = () => {
             };
             triggerEmail();
         }
-    }, [isEmailSent]);
+    }, [isLoading, businessReg, totalRevenue, isEmailSent]);
 
     const update = (key: string, val: string) => setForm(f => ({ ...f, [key]: val }));
 
     const handleSubmit = async () => {
-        const res = await fetch(`${PYTHON_API_BASE}/ssm/register`, {
+        const data = await apiFetch(`/api/ssm/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(form)
         });
-        const data = await res.json();
         setSsmResult(data);
         setAccepted(true);
     };
+
+    if (isLoading) {
+        return <div className="fintech-card" style={{ textAlign: 'center', padding: '4rem 1rem' }}>Loading SSM Registration Status...</div>;
+    }
+
+    if (businessReg) {
+        return (
+            <div className="fintech-card" style={{ textAlign: 'center', padding: '4rem 1rem' }}>
+                <CheckCircle2 color="#16a349" size={52} style={{ margin: '0 auto 1.5rem' }} />
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.5rem' }}>Business Already Registered</h3>
+                <p style={{ color: 'oklch(0.44 0 0)', fontSize: '0.875rem' }}>
+                    SSM Registration Number: <span style={{ fontWeight: 600 }}>{businessReg}</span>
+                </p>
+            </div>
+        );
+    }
+
+    if (totalRevenue < 500000) {
+        return (
+            <div className="fintech-card" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+                <div style={{ width: 48, height: 48, background: '#f3f4f6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem' }}>
+                    <Users size={24} color="#6b7280" />
+                </div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '0.75rem' }}>Registration Not Yet Required</h3>
+                <p style={{ color: 'oklch(0.44 0 0)', fontSize: '0.875rem', marginBottom: '1.5rem', maxWidth: '400px', margin: '0 auto 1.5rem' }}>
+                    Your business has not yet reached the RM 500,000 revenue threshold. Mandatory SSM Registration is not required at this time.
+                </p>
+                <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '1.5rem', maxWidth: '400px', margin: '0 auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
+                        <span style={{ color: '#4b5563' }}>Current Revenue</span>
+                        <span style={{ fontWeight: 600 }}>RM {(totalRevenue).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                        <div style={{ width: `${Math.min(100, (totalRevenue / 500000) * 100)}%`, height: '100%', background: '#3b82f6' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontSize: '0.75rem' }}>
+                        <span style={{ color: '#9ca3af' }}>0</span>
+                        <span style={{ color: '#9ca3af' }}>Threshold: RM 500k</span>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (accepted) {
         return (
