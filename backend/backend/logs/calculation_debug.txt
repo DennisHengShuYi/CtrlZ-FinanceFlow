@@ -1,5 +1,5 @@
 ================================================================================
-   DETAILED CALCULATION TRACE: 2026-03-10 14:30:18.983072
+   DETAILED CALCULATION TRACE: 2026-03-10 21:21:12.232207
 ================================================================================
 
 STEP 1: SUPABASE DATA RETRIEVAL
@@ -87,10 +87,10 @@ The Loan Score is calculated using weighted scores of 6 key factors:
 
 5. Asset Strength (Weight: 15%)
    - Liquidity Calculation:
-     Cash On Hand (Paid Invoices): RM 315,500.00
+     Cash On Hand (Paid Invoices): RM 268,500.00
      (Based on Sum of Paid Customer Invoices minus Paid Supplier Invoices)
      + 80% Receivables: RM 82,300.00 * 0.8 = RM 65,840.00
-     - Current Liabilities: RM 57,950.00
+     - Current Liabilities: RM 10,950.00
    - Total Net Assets: RM 323,390.00
    - Asset Score (Relative to RM 200k target): 100.00%
    - Contribution to Total Score: 15.00pts
