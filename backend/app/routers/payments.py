@@ -60,7 +60,7 @@ async def remove_payment(payment_id: str, claims: dict[str, Any] = Depends(requi
 async def scan_receipt(
     file: UploadFile = File(...), claims: dict[str, Any] = Depends(require_auth)
 ):
-    company_id, _ = _ensure_company(claims)
+    company_id, _ = await _ensure_company(claims)
     image_bytes = await file.read()
     mime_type = file.content_type or "image/jpeg"
 
@@ -76,10 +76,10 @@ async def scan_receipt(
 
 
 @router.post("/verify")
-def verify_payment(
+async def verify_payment(
     body: PaymentVerificationRequest, claims: dict[str, Any] = Depends(require_auth)
 ):
-    company_id, _ = _ensure_company(claims)
+    company_id, _ = await _ensure_company(claims)
     payment = process_payment_verification(company_id, body.model_dump())
     return {
         "message": "Payment verified and invoice updated successfully!",
@@ -88,10 +88,10 @@ def verify_payment(
 
 
 @router.get("/{payment_id}/pdf")
-def download_receipt_pdf(
+async def download_receipt_pdf(
     payment_id: str, invoice_id: str, claims: dict[str, Any] = Depends(require_auth)
 ):
-    _, company = _ensure_company(claims)
+    _, company = await _ensure_company(claims)
     payment = get_payment(payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")

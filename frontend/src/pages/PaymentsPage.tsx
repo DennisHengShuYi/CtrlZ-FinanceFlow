@@ -1,6 +1,28 @@
 import { useState, useEffect } from "react";
 import { useApiFetch } from "../hooks/useApiFetch";
-import { CreditCard, Plus, Trash2, X } from "lucide-react";
+import { CreditCard, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Payment {
   id: string;
@@ -137,201 +159,140 @@ export default function PaymentsPage() {
           <h1 className="page-title">Payments</h1>
           <p className="page-subtitle">Track all received payments.</p>
         </div>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
+        <Button onClick={() => setShowModal(true)}>
           <Plus size={16} />
           Record Payment
-        </button>
+        </Button>
       </div>
 
-      {/* Summary cards */}
-      <div className="payment-summary">
-        <div className="summary-card">
-          <span className="summary-label">Total Payments</span>
-          <span className="summary-value">{payments.length}</span>
-        </div>
-        <div className="summary-card">
-          <span className="summary-label">Total Collected (Est. Base Value)</span>
-          <span className="summary-value">
-            {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalPaid)}
-          </span>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Payments</p>
+            <p className="text-2xl font-bold mt-1">{payments.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Collected (Est. Base)</p>
+            <p className="text-2xl font-bold mt-1">{new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalPaid)}</p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="table-container" style={{ animationDelay: "100ms" }}>
-        {loading ? (
-          <div className="table-empty">
-            <div className="spinner" />
-            <p>Loading payments…</p>
-          </div>
-        ) : payments.length === 0 ? (
-          <div className="table-empty">
-            <CreditCard size={40} strokeWidth={1} className="empty-icon" />
-            <p>No payments recorded</p>
-            <span>Record your first payment to start tracking.</span>
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Client</th>
-                <th>Amount</th>
-                <th>Date</th>
-                <th>Method</th>
-                <th>Notes</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map((p, i) => (
-                <tr key={p.id} style={{ animationDelay: `${i * 40}ms` }}>
-                  <td className="cell-bold">{p.client_name || "—"}</td>
-                  <td className="cell-amount cell-positive">
-                    {new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency || "USD" }).format(parseFloat(String(p.amount)))}
-                  </td>
-                  <td>{p.date}</td>
-                  <td>{p.method || "—"}</td>
-                  <td className="cell-truncate">{p.notes || "—"}</td>
-                  <td>
-                    <button
-                      className={`btn-icon btn-icon-danger ${deletingId === p.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      title="Delete"
-                      disabled={deletingId === p.id}
-                      onClick={() => handleDelete(p.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Record Payment</h2>
-              <button className="btn-icon" onClick={() => setShowModal(false)}>
-                <X size={18} />
-              </button>
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <p className="text-sm text-muted-foreground">Loading payments…</p>
             </div>
-            <form onSubmit={handleCreate}>
-              <div className="form-grid">
-                <div className="form-field">
-                  <label>Client</label>
-                  <select
-                    required
-                    value={form.client_id}
-                    onChange={(e) =>
-                      setForm({ ...form, client_id: e.target.value })
-                    }
-                  >
-                    <option value="">Select client…</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Amount</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="0.00"
-                    value={form.amount}
-                    onChange={(e) =>
-                      setForm({ ...form, amount: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Method</label>
-                  <select
-                    value={form.method}
-                    onChange={(e) => setForm({ ...form, method: e.target.value })}
-                  >
-                    <option value="">Select method…</option>
-                    <option value="bank_transfer">Bank Transfer</option>
-                    <option value="cash">Cash</option>
-                    <option value="check">Check</option>
-                    <option value="card">Card</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Currency</label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                  >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="MYR">MYR (RM)</option>
-                    <option value="SGD">SGD (S$)</option>
-                    <option value="IDR">IDR (Rp)</option>
-                    <option value="PHP">PHP (₱)</option>
-                    <option value="THB">THB (฿)</option>
-                    <option value="VND">VND (₫)</option>
-                    <option value="AED">AED</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Exchange Rate</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    min="0"
-                    required
-                    value={form.exchange_rate}
-                    onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })}
-                  />
-                  {form.currency !== baseCurrency && (
-                    <p className="text-xs text-gray-500 mt-1">Est. base value: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format((parseFloat(form.amount) || 0) * (form.exchange_rate as number))}</p>
-                  )}
-                </div>
-                <div className="form-field full-width">
-                  <label>Notes</label>
-                  <textarea
-                    placeholder="Optional notes…"
-                    value={form.notes}
-                    onChange={(e) =>
-                      setForm({ ...form, notes: e.target.value })
-                    }
-                  />
-                </div>
+          ) : payments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-2">
+              <CreditCard size={40} strokeWidth={1} className="text-muted-foreground" />
+              <p className="font-medium">No payments recorded</p>
+              <span className="text-sm text-muted-foreground">Record your first payment to start tracking.</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Method</TableHead>
+                  <TableHead>Notes</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.client_name || "—"}</TableCell>
+                    <TableCell className="font-medium tabular-nums text-green-600">
+                      {new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency || "USD" }).format(parseFloat(String(p.amount)))}
+                    </TableCell>
+                    <TableCell>{p.date}</TableCell>
+                    <TableCell>{p.method || "—"}</TableCell>
+                    <TableCell className="max-w-[150px] truncate">{p.notes || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" disabled={deletingId === p.id} onClick={() => handleDelete(p.id)}>
+                        <Trash2 size={14} />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Record Payment</DialogTitle>
+            <DialogDescription>Add a new payment record.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Client</Label>
+                <select required className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm" value={form.client_id} onChange={(e) => setForm({ ...form, client_id: e.target.value })}>
+                  <option value="">Select client…</option>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
               </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={isCreating}>
-                  {isCreating ? "Recording…" : "Record Payment"}
-                </button>
+              <div className="space-y-2">
+                <Label>Amount</Label>
+                <Input type="number" step="0.01" min={0} required placeholder="0.00" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Method</Label>
+                <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm" value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value })}>
+                  <option value="">Select method…</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="check">Check</option>
+                  <option value="card">Card</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Currency</Label>
+                <select className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })}>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="MYR">MYR (RM)</option>
+                  <option value="SGD">SGD (S$)</option>
+                  <option value="IDR">IDR (Rp)</option>
+                  <option value="PHP">PHP (₱)</option>
+                  <option value="THB">THB (฿)</option>
+                  <option value="VND">VND (₫)</option>
+                  <option value="AED">AED</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Exchange Rate</Label>
+                <Input type="number" step="0.000001" min={0} required value={form.exchange_rate} onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })} />
+                {form.currency !== baseCurrency && <p className="text-xs text-muted-foreground">Est. base: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format((parseFloat(form.amount) || 0) * (form.exchange_rate as number))}</p>}
+              </div>
+              <div className="col-span-2 space-y-2">
+                <Label>Notes</Label>
+                <Textarea placeholder="Optional notes…" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button type="submit" disabled={isCreating}>{isCreating ? "Recording…" : "Record Payment"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

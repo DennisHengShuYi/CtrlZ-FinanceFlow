@@ -11,6 +11,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { VercelLogo } from "./ui/VercelLogo";
+import { Separator } from "./ui/separator";
 import { useState, useEffect } from "react";
 
 interface NavChild {
@@ -61,6 +62,8 @@ const NAV_ITEMS: NavItem[] = [
       { to: "/dashboard/ctos", label: "AI CTOS" },
       { to: "/dashboard/registry", label: "Registry" },
       { to: "/dashboard/compliance", label: "Compliance" },
+      { to: "/dashboard/invoice-prevet", label: "Invoice Pre-vet" },
+      { to: "/dashboard/hitl-review", label: "HITL Review" },
     ],
   },
   { to: "/dashboard/whatsapp", icon: MessageSquare, label: "WhatsApp Sandbox" },
@@ -84,9 +87,11 @@ function SidebarGroup({
   return (
     <div
       className="sidebar-group"
-      onMouseEnter={onToggle}
+      onMouseEnter={() => {
+        if (!isOpen) onToggle();
+      }}
       onMouseLeave={() => {
-        if (!isChildActive) onToggle();
+        if (!isChildActive && isOpen) onToggle();
       }}
     >
       <button
@@ -176,14 +181,14 @@ export default function DashboardLayout() {
   return (
     <div className="layout-container">
       {/* Sidebar */}
-      <aside className="sidebar">
+      <aside className="sidebar border-r border-border bg-card shadow-sm">
         <div className="sidebar-header">
           <div className="sidebar-brand">
             <VercelLogo />
-            <span className="sidebar-brand-text">FinanceFlow</span>
+            <span className="sidebar-brand-text font-semibold tracking-tight">FinanceFlow</span>
           </div>
         </div>
-
+        <Separator className="mx-2" />
         <nav className="sidebar-nav">
           {NAV_ITEMS.map((item) =>
             item.children ? (
@@ -209,6 +214,7 @@ export default function DashboardLayout() {
           )}
         </nav>
 
+        <Separator className="mx-2" />
         <div className="sidebar-footer">
           <div className="sidebar-user">
             <UserButton afterSignOutUrl="/" />

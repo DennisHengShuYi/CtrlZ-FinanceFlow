@@ -14,6 +14,8 @@ import ReadinessPage from "./pages/FintechOS/ReadinessPage";
 import CTOSPage from "./pages/FintechOS/CTOSPage";
 import RegistryPage from "./pages/FintechOS/RegistryPage";
 import CompliancePage from "./pages/FintechOS/CompliancePage";
+import InvoicePrevetPage from "./pages/InvoicePrevetPage";
+import HITLReviewPage from "./pages/HITLReviewPage";
 
 const isMockMode = localStorage.getItem("Mock-Mode") === "true";
 
@@ -61,6 +63,36 @@ export default function App() {
           </ProtectedRoute>
         }
       >
+        {/* Invoice Pre-vet (Liability Shield) */}
+        <Route
+          path="invoice-prevet"
+          element={
+            <>
+              <SignedIn>
+                <InvoicePrevetPage />
+              </SignedIn>
+              <SignedOut>
+                <Navigate to="/" replace />
+              </SignedOut>
+            </>
+          }
+        />
+
+        {/* HITL Review — Human-In-The-Loop */}
+        <Route
+          path="hitl-review"
+          element={
+            <>
+              <SignedIn>
+                <HITLReviewPage />
+              </SignedIn>
+              <SignedOut>
+                <Navigate to="/" replace />
+              </SignedOut>
+            </>
+          }
+        />
+
         <Route index element={<OverviewPage />} />
         <Route path="invoices" element={<InvoicesPage />} />
         <Route path="clients" element={<ClientsPage />} />
@@ -74,6 +106,7 @@ export default function App() {
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
+
     </Routes>
   );
 }

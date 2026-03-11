@@ -1,6 +1,28 @@
 import { useState, useEffect } from "react";
 import { useApiFetch } from "../hooks/useApiFetch";
 import { FileText, Plus, Download, Trash2, X, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface InvoiceItem {
   description: string;
@@ -207,308 +229,202 @@ export default function InvoicesPage() {
           <h1 className="page-title">Invoices</h1>
           <p className="page-subtitle">Manage and track all your invoices.</p>
         </div>
-        <button className="btn-primary" onClick={() => {
-          setForm({ ...form, type: "issuing" }); // default type when creating manually
-          setShowModal(true);
-        }}>
+        <Button onClick={() => { setForm({ ...form, type: "issuing" }); setShowModal(true); }}>
           <Plus size={16} />
           New Invoice
-        </button>
+        </Button>
       </div>
 
-      {/* Removed Tabs for Unified Feed */}
-
-      {/* Invoice Table */}
-      <div className="table-container" style={{ animationDelay: "100ms" }}>
-        {loading ? (
-          <div className="table-empty">
-            <div className="spinner" />
-            <p>Loading invoices…</p>
-          </div>
-        ) : filteredInvoices.length === 0 ? (
-          <div className="table-empty">
-            <FileText size={40} strokeWidth={1} className="empty-icon" />
-            <p>No invoices yet</p>
-            <span>Create your first invoice to get started.</span>
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Invoice #</th>
-                <th>Client</th>
-                <th>Direction</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredInvoices.map((inv, i) => (
-                <tr key={inv.id} style={{ animationDelay: `${i * 40}ms` }}>
-                  <td className="cell-mono">{inv.invoice_number}</td>
-                  <td>{inv.client_name || "—"}</td>
-                  <td>
-                    {inv.type === "receiving" ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                        Outbound
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                        Inbound
-                      </span>
-                    )}
-                  </td>
-                  <td>{inv.date}</td>
-                  <td className={`font-medium ${inv.type === "receiving" ? "text-red-600" : "text-green-600"}`}>
-                    {inv.type === "receiving" ? "-" : "+"}
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: inv.currency || "USD",
-                    }).format(parseFloat(String(inv.total_amount)))}
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="status-select"
-                        value={inv.status}
-                        onChange={(e) =>
-                          handleStatusChange(inv.id, e.target.value)
-                        }
-                      >
-                        <option value="unpaid">Unpaid</option>
-                        <option value="paid">Paid</option>
-                        <option value="partially_paid">Partial</option>
-                      </select>
-                      {inv.ai_auto_paid_reason && (
-                        <span
-                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 cursor-help"
-                          title={inv.ai_auto_paid_reason}
-                        >
-                          🤖 AI Auto-Paid
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="btn-icon cursor-pointer"
-                        title="View PDF"
-                        onClick={() => handleViewPdf(inv.id)}
-                      >
-                        <Eye size={14} />
-                      </button>
-                      <button
-                        className="btn-icon cursor-pointer"
-                        title="Download PDF"
-                        onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
-                      >
-                        <Download size={14} />
-                      </button>
-                      <button
-                        className={`btn-icon btn-icon-danger cursor-pointer ${deletingId === inv.id ? "opacity-50 cursor-not-allowed" : ""}`}
-                        title="Delete"
-                        disabled={deletingId === inv.id}
-                        onClick={() => handleDelete(inv.id)}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Create Invoice Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Create Invoice</h2>
-              <button className="btn-icon" onClick={() => setShowModal(false)}>
-                <X size={18} />
-              </button>
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <p className="text-sm text-muted-foreground">Loading invoices…</p>
             </div>
-            <form onSubmit={handleCreate}>
-              <div className="form-grid">
-                <div className="form-field">
-                  <label>Client</label>
-                  <select
-                    required
-                    value={form.client_id}
-                    onChange={(e) =>
-                      setForm({ ...form, client_id: e.target.value })
-                    }
-                  >
-                    <option value="">Select a client…</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Type</label>
-                  <select
-                    required
-                    value={form.type}
-                    onChange={(e) =>
-                      setForm({ ...form, type: e.target.value as "issuing" | "receiving" })
-                    }
-                  >
-                    <option value="issuing">Issuing (Receivable)</option>
-                    <option value="receiving">Receiving (Payable Bill)</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Invoice Number</label>
-                  <input
-                    required
-                    placeholder="INV-001"
-                    value={form.invoice_number}
-                    onChange={(e) =>
-                      setForm({ ...form, invoice_number: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Month (YYYY-MM)</label>
-                  <input
-                    required
-                    placeholder="2024-03"
-                    value={form.month}
-                    onChange={(e) => setForm({ ...form, month: e.target.value })}
-                  />
-                </div>
-                <div className="form-field">
-                  <label>Currency</label>
-                  <select
-                    value={form.currency}
-                    onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                  >
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                    <option value="MYR">MYR (RM)</option>
-                    <option value="SGD">SGD (S$)</option>
-                    <option value="IDR">IDR (Rp)</option>
-                    <option value="PHP">PHP (₱)</option>
-                    <option value="THB">THB (฿)</option>
-                    <option value="VND">VND (₫)</option>
-                    <option value="AED">AED</option>
-                  </select>
-                </div>
-                <div className="form-field">
-                  <label>Exchange Rate</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    min="0"
-                    required
-                    value={form.exchange_rate}
-                    onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })}
-                  />
-                  {form.currency !== baseCurrency && (
-                    <p className="text-xs text-gray-500 mt-1">Est. base value: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalAmount * form.exchange_rate)}</p>
+          ) : filteredInvoices.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-2">
+              <FileText size={40} strokeWidth={1} className="text-muted-foreground" />
+              <p className="font-medium">No invoices yet</p>
+              <span className="text-sm text-muted-foreground">Create your first invoice to get started.</span>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Client</TableHead>
+                  <TableHead>Direction</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInvoices.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-mono text-sm">{inv.invoice_number}</TableCell>
+                    <TableCell>{inv.client_name || "—"}</TableCell>
+                    <TableCell>
+                      {inv.type === "receiving" ? (
+                        <Badge variant="destructive" className="text-xs">Outbound</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 border-green-200">Inbound</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{inv.date}</TableCell>
+                    <TableCell className={`font-medium tabular-nums ${inv.type === "receiving" ? "text-red-600" : "text-green-600"}`}>
+                      {inv.type === "receiving" ? "-" : "+"}
+                      {new Intl.NumberFormat("en-US", { style: "currency", currency: inv.currency || "USD" }).format(parseFloat(String(inv.total_amount)))}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <select
+                          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                          value={inv.status}
+                          onChange={(e) => handleStatusChange(inv.id, e.target.value)}
+                        >
+                          <option value="unpaid">Unpaid</option>
+                          <option value="paid">Paid</option>
+                          <option value="partially_paid">Partial</option>
+                        </select>
+                        {inv.ai_auto_paid_reason && (
+                          <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700 border-blue-200 cursor-help" title={inv.ai_auto_paid_reason}>
+                            🤖 AI Auto-Paid
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="View PDF" onClick={() => handleViewPdf(inv.id)}>
+                          <Eye size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" title="Download PDF" onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}>
+                          <Download size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" title="Delete" disabled={deletingId === inv.id} onClick={() => handleDelete(inv.id)}>
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Invoice</DialogTitle>
+            <DialogDescription>Add a new invoice with line items.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="client">Client</Label>
+                <select
+                  id="client"
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={form.client_id}
+                  onChange={(e) => setForm({ ...form, client_id: e.target.value })}
+                >
+                  <option value="">Select a client…</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="type">Type</Label>
+                <select
+                  id="type"
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as "issuing" | "receiving" })}
+                >
+                  <option value="issuing">Issuing (Receivable)</option>
+                  <option value="receiving">Receiving (Payable Bill)</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invoice_number">Invoice Number</Label>
+                <Input id="invoice_number" required placeholder="INV-001" value={form.invoice_number} onChange={(e) => setForm({ ...form, invoice_number: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input id="date" type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="month">Month (YYYY-MM)</Label>
+                <Input id="month" required placeholder="2024-03" value={form.month} onChange={(e) => setForm({ ...form, month: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="currency">Currency</Label>
+                <select
+                  id="currency"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                  value={form.currency}
+                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="MYR">MYR (RM)</option>
+                  <option value="SGD">SGD (S$)</option>
+                  <option value="IDR">IDR (Rp)</option>
+                  <option value="PHP">PHP (₱)</option>
+                  <option value="THB">THB (฿)</option>
+                  <option value="VND">VND (₫)</option>
+                  <option value="AED">AED</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="exchange_rate">Exchange Rate</Label>
+                <Input id="exchange_rate" type="number" step="0.000001" min={0} required value={form.exchange_rate} onChange={(e) => setForm({ ...form, exchange_rate: parseFloat(e.target.value) || 1.0 })} />
+                {form.currency !== baseCurrency && (
+                  <p className="text-xs text-muted-foreground">Est. base: {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency }).format(totalAmount * form.exchange_rate)}</p>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium">Line Items</h3>
+                <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                  <Plus size={14} /> Add Item
+                </Button>
+              </div>
+              {items.map((item, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <Input className="flex-2" placeholder="Description" required value={item.description} onChange={(e) => updateItem(idx, "description", e.target.value)} />
+                  <Input className="w-24" type="number" step="0.01" min={0} placeholder="Price" required value={item.price || ""} onChange={(e) => updateItem(idx, "price", e.target.value)} />
+                  <Input className="w-20" type="number" min={1} placeholder="Qty" required value={item.quantity || ""} onChange={(e) => updateItem(idx, "quantity", e.target.value)} />
+                  {items.length > 1 && (
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}>
+                      <X size={14} />
+                    </Button>
                   )}
                 </div>
+              ))}
+              <div className="flex justify-end gap-4 pt-2 border-t font-semibold">
+                <span>Total:</span>
+                <span>{new Intl.NumberFormat("en-US", { style: "currency", currency: form.currency || "USD" }).format(totalAmount)}</span>
               </div>
+            </div>
 
-              <div className="form-section">
-                <div className="form-section-header">
-                  <h3>Line Items</h3>
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    onClick={addItem}
-                  >
-                    <Plus size={14} /> Add Item
-                  </button>
-                </div>
-                {items.map((item, idx) => (
-                  <div key={idx} className="line-item-row">
-                    <input
-                      className="line-item-desc"
-                      placeholder="Description"
-                      required
-                      value={item.description}
-                      onChange={(e) =>
-                        updateItem(idx, "description", e.target.value)
-                      }
-                    />
-                    <input
-                      className="line-item-num"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Price"
-                      required
-                      value={item.price || ""}
-                      onChange={(e) => updateItem(idx, "price", e.target.value)}
-                    />
-                    <input
-                      className="line-item-num"
-                      type="number"
-                      min="1"
-                      placeholder="Qty"
-                      required
-                      value={item.quantity || ""}
-                      onChange={(e) =>
-                        updateItem(idx, "quantity", e.target.value)
-                      }
-                    />
-                    {items.length > 1 && (
-                      <button
-                        type="button"
-                        className="btn-icon btn-icon-danger"
-                        onClick={() => removeItem(idx)}
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <div className="line-item-total">
-                  <span>Total:</span>
-                  <span className="cell-amount">
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: form.currency || "USD",
-                    }).format(totalAmount)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary" disabled={isCreating}>
-                  {isCreating ? "Creating…" : "Create Invoice"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button type="submit" disabled={isCreating}>{isCreating ? "Creating…" : "Create Invoice"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

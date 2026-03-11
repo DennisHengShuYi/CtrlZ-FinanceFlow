@@ -57,6 +57,7 @@ def require_auth(request: Request) -> dict[str, Any]:
     FastAPI dependency that verifies Clerk JWTs.
     Returns the decoded token payload (contains userId, etc.).
     """
+
     if os.getenv("AUTH_STRATEGY") == "mock":
         # Return a consistent test user ID for local development
         return {"sub": "user_2test_mock_123456789"}

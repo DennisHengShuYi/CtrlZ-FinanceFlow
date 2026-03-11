@@ -1,3 +1,4 @@
+
 # FinanceFlow — Manual Run Guide
 
 ## Project Layout
@@ -17,7 +18,8 @@ antigravity-minhan/
     │       └── whatsapp.py
     └── scripts/
         └── fintech-utils/      ← Debug/utility scripts
-```
+
+
 
 ---
 
@@ -60,7 +62,7 @@ PORT=8000
 ### Backend
 ```powershell
 cd backend
-pip install fastapi uvicorn supabase python-dotenv google-genai python-multipart python-jose PyJWT pydantic numpy python-dateutil reportlab
+pip install fastapi uvicorn supabase python-dotenv google-genai python-multipart python-jose PyJWT pydantic numpy python-dateutil reportlab openai openpyxl
 ```
 
 ### Frontend
@@ -173,5 +175,5 @@ npm install framer-motion
 ### Backend import errors on startup
 ```powershell
 cd backend
-pip install python-dateutil numpy reportlab
+pip install python-dateutil numpy reportlab openai openpyxl
 ```

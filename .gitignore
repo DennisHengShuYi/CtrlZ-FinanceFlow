@@ -2,13 +2,16 @@
 node_modules/
 dist/
 dist-ssr/
+*.log
 
 # ── Python ──
+
 __pycache__/
 *.pyc
 *.pyo
 venv/
 .venv/
+
 testvenv/
 *.egg-info/
 
@@ -51,5 +54,16 @@ Thumbs.db
 *.swo
 *~
 
+.DS_Store
+.vscode/
+.idea/
+
+# Cross-Project
+frontend/dist/
+
+# AHTN vector DB (generated, rebuild with build_ahtn_vector_db.py)
+backend/data/pillar2/ahtn_embeddings.npy
+
 # ── Claude / AI Agent Artifacts ──
 .claude/
+

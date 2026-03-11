@@ -1,0 +1,46 @@
+{
+  "invoice_id": "INV-2025-01005",
+  "invoice_date": "2025-03-19",
+  "vendor": {
+    "name": "Fashion Textiles Vietnam Ltd",
+    "address": "15 Nguyen Hue, District 1, Ho Chi Minh City, Vietnam",
+    "country": "VN"
+  },
+  "buyer": {
+    "name": "Singapore Fashion Retail",
+    "address": "200 Orchard Road, Singapore 238801",
+    "country": "SG"
+  },
+  "line_items": [
+    {
+      "item_id": 1,
+      "description": "Women's cotton blouse, short sleeve, size M",
+      "quantity": 150,
+      "unit": "pieces",
+      "unit_price": 85.00,
+      "amount": 12750.00,
+      "origin_country": "VN"
+    },
+    {
+      "item_id": 2,
+      "description": "Men's denim jeans, blue, 32 waist",
+      "quantity": 100,
+      "unit": "pieces",
+      "unit_price": 165.00,
+      "amount": 16500.00,
+      "origin_country": "VN"
+    },
+    {
+      "item_id": 3,
+      "description": "Polyester blanket, single size, grey",
+      "quantity": 80,
+      "unit": "pieces",
+      "unit_price": 95.00,
+      "amount": 7600.00,
+      "origin_country": "VN"
+    }
+  ],
+  "subtotal": 36850.00,
+  "currency": "MYR",
+  "notes": "Spring collection 2025"
+}

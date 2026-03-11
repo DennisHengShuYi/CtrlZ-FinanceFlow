@@ -2,165 +2,160 @@ import { useUser } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { useApiFetch } from "../../hooks/useApiFetch";
 import {
-    FileText,
-    Users,
-    CreditCard,
-    ArrowUpRight,
-    ArrowDownRight,
-    AlertCircle,
-    Scan,
-    Wallet,
-    Landmark,
-    TrendingUp,
+  FileText,
+  Users,
+  CreditCard,
+  ArrowUpRight,
+  ArrowDownRight,
+  AlertCircle,
+  Scan,
+  Wallet,
+  Landmark,
+  TrendingUp,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface StatCardProps {
-    icon: React.ElementType;
-    label: string;
-    value: string;
-    change?: string;
-    positive?: boolean;
-    delay?: number;
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  change?: string;
+  positive?: boolean;
+  delay?: number;
 }
 
 function StatCard({
-    icon: Icon,
-    label,
-    value,
-    change,
-    positive = true,
-    delay = 0,
+  icon: Icon,
+  label,
+  value,
+  change,
+  positive = true,
+  delay = 0,
 }: StatCardProps) {
-    return (
-        <div
-            className="overview-stat-card"
-            style={{ animationDelay: `${delay}ms` }}
-        >
-            <div className="stat-card-header">
-                <span className="stat-icon-wrapper">
-                    <Icon size={18} strokeWidth={1.5} />
-                </span>
-                {change && (
-                    <span className={`stat-trend ${positive ? "positive" : "negative"}`}>
-                        {positive ? (
-                            <ArrowUpRight size={14} />
-                        ) : (
-                            <ArrowDownRight size={14} />
-                        )}
-                        {change}
-                    </span>
-                )}
-            </div>
-            <div className="stat-card-body mt-4">
-                <span className="stat-value text-4xl md:text-5xl font-bold tracking-tighter text-gray-900 drop-shadow-sm block mb-1">
-                    {value}
-                </span>
-                <span className="stat-label text-base font-medium text-gray-500 uppercase tracking-widest">
-                    {label}
-                </span>
-            </div>
+  return (
+    <Card
+      className="transition-all hover:shadow-md hover:border-border/80"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 pt-6 px-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+          <Icon size={18} strokeWidth={1.5} className="text-muted-foreground" />
         </div>
-    );
+        {change && (
+          <span className={`flex items-center gap-0.5 text-xs font-medium ${positive ? "text-green-600" : "text-red-600"}`}>
+            {positive ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+            {change}
+          </span>
+        )}
+      </CardHeader>
+      <CardContent className="px-6 pb-6 pt-0">
+        <div className="text-3xl font-bold tracking-tight">{value}</div>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mt-2">{label}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
 function AlertCard({
-    title,
-    items,
-    isSupplier = false,
-    baseCurrency = "MYR",
+  title,
+  items,
+  isSupplier = false,
+  baseCurrency = "MYR",
 }: {
-    title: string;
-    items: any[];
-    isSupplier?: boolean;
-    baseCurrency?: string;
+  title: string;
+  items: any[];
+  isSupplier?: boolean;
+  baseCurrency?: string;
 }) {
-    if (items.length === 0) {
-        return (
-            <div className="p-4 custom-bg custom-border rounded-lg text-sm text-gray-500">
-                No pending items for {title.toLowerCase()}.
-            </div>
-        );
-    }
-
-    const total = items.reduce(
-        (sum, item) => sum + (parseFloat(item.total_amount || 0) * (parseFloat(item.exchange_rate) || 1)),
-        0,
-    );
-
+  if (items.length === 0) {
     return (
-        <div className="p-4 bg-white border border-[oklch(0.92_0_0)] rounded-lg shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <AlertCircle
-                        className={`w-5 h-5 ${isSupplier ? "text-amber-500" : "text-red-500"}`}
-                    />
-                    <h3 className="font-medium text-gray-900">{title}</h3>
-                </div>
-                <span className="font-semibold text-gray-900">
-                    {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency || "MYR" }).format(total)}
-                </span>
-            </div>
-            <div className="space-y-3">
-                {items.slice(0, 3).map((inv: any) => (
-                    <div
-                        key={inv.id}
-                        className="flex items-center justify-between text-sm"
-                    >
-                        <span className="text-gray-600 truncate mr-2">
-                            {inv.clients?.name || "Unknown"} - {inv.invoice_number}
-                        </span>
-                        <div className="flex flex-col items-end">
-                            <span className="font-medium">
-                                {new Intl.NumberFormat("en-US", { style: "currency", currency: inv.currency || "MYR" }).format(parseFloat(inv.total_amount))}
-                            </span>
-                            {(inv.currency && inv.currency !== baseCurrency) && (
-                                <span className="text-[10px] text-gray-400">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency || "MYR" }).format(parseFloat(inv.total_amount) * parseFloat(inv.exchange_rate || 1))}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                ))}
-                {items.length > 3 && (
-                    <div className="text-sm text-gray-500 pt-2 border-t">
-                        + {items.length - 3} more
-                    </div>
-                )}
-            </div>
-        </div>
+      <div className="p-4 rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground">
+        No pending items for {title.toLowerCase()}.
+      </div>
     );
+  }
+
+  const total = items.reduce(
+    (sum, item) => sum + (parseFloat(item.total_amount || 0) * (parseFloat(item.exchange_rate) || 1)),
+    0,
+  );
+
+  return (
+    <Card>
+      <CardHeader className="pb-4 pt-4 px-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className={`h-5 w-5 ${isSupplier ? "text-amber-500" : "text-red-500"}`} />
+            <CardTitle className="text-base">{title}</CardTitle>
+          </div>
+          <span className="font-semibold">
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency || "MYR" }).format(total)}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 px-4 pb-4">
+        {items.slice(0, 3).map((inv: any) => (
+          <div key={inv.id} className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground truncate mr-2">
+              {inv.clients?.name || "Unknown"} - {inv.invoice_number}
+            </span>
+            <div className="flex flex-col items-end">
+              <span className="font-medium">
+                {new Intl.NumberFormat("en-US", { style: "currency", currency: inv.currency || "MYR" }).format(parseFloat(inv.total_amount))}
+              </span>
+              {inv.currency && inv.currency !== baseCurrency && (
+                <span className="text-xs text-muted-foreground">
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: baseCurrency || "MYR" }).format(parseFloat(inv.total_amount) * parseFloat(inv.exchange_rate || 1))}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+        {items.length > 3 && (
+          <div className="text-sm text-muted-foreground pt-2 border-t">
+            + {items.length - 3} more
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function QuickActions() {
-    const actions = [
-        { label: "New Invoice", icon: FileText, href: "/dashboard/invoices" },
-        { label: "Add Client", icon: Users, href: "/dashboard/clients" },
-        { label: "Record Payment", icon: CreditCard, href: "/dashboard/payments" },
-        { label: "Scan Receipt", icon: Scan, href: "/dashboard/scan-receipt" },
-    ];
+  const actions = [
+    { label: "New Invoice", icon: FileText, href: "/dashboard/invoices" },
+    { label: "Add Client", icon: Users, href: "/dashboard/clients" },
+    { label: "Record Payment", icon: CreditCard, href: "/dashboard/payments" },
+    { label: "Scan Receipt", icon: Scan, href: "/dashboard/scan-receipt" },
+  ];
 
-    return (
-        <div>
-            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4 px-1">
-                Quick Actions
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-                {actions.map((a) => (
-                    <Link
-                        key={a.label}
-                        to={a.href}
-                        className="group flex flex-col items-center justify-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 hover:-translate-y-0.5 transition-all text-gray-700"
-                    >
-                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                            <a.icon size={18} className="text-gray-600 group-hover:text-blue-600 transition-colors" />
-                        </div>
-                        <span className="text-xs font-semibold text-center">{a.label}</span>
-                    </Link>
-                ))}
-            </div>
+  return (
+    <Card>
+      <CardHeader className="pb-4 pt-6 px-6">
+        <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Quick Actions
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-6 pb-6">
+        <div className="grid grid-cols-2 gap-4">
+          {actions.map((a) => (
+            <Link
+              key={a.label}
+              to={a.href}
+              className="group flex flex-col items-center justify-center gap-3 rounded-lg border border-input bg-background p-5 text-center shadow-sm transition-all hover:bg-accent hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted group-hover:bg-muted/80">
+                <a.icon size={18} className="text-muted-foreground" />
+              </div>
+              <span className="text-xs font-semibold">{a.label}</span>
+            </Link>
+          ))}
         </div>
-    );
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function FinanceOverview() {
@@ -238,19 +233,19 @@ export default function FinanceOverview() {
         totalVolume === 0 ? 0 : (totalPayable / totalVolume) * 100;
 
     return (
-        <div className="page-container animate-in fade-in duration-500">
+        <div className="page-container">
             <div className="page-header">
                 <div>
-                    <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-gray-900">
+                    <h1 className="text-3xl font-bold tracking-tight mb-2">
                         {greeting}, {displayName} 👋
                     </h1>
-                    <p className="text-base text-gray-500">
+                    <p className="text-muted-foreground">
                         Here's what's happening with your finances today.
                     </p>
                 </div>
             </div>
 
-            <div className="overview-stats-grid grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-10">
                 <StatCard
                     icon={Wallet}
                     label="Cash on Hand"
@@ -275,113 +270,113 @@ export default function FinanceOverview() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 mb-10 items-start">
                 {/* Main Content Pane */}
-                <div className="lg:col-span-8 space-y-8">
-                    <div className="bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl p-6">
-                        <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
-                            <h3 className="text-base font-semibold text-gray-900">
-                                Financial Flow
-                            </h3>
+                <div className="lg:col-span-8 space-y-8 lg:space-y-10">
+                    <Card className="overflow-hidden">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-6 pt-6 px-6">
+                            <CardTitle>Financial Flow</CardTitle>
                             {analysis?.totalRevenue >= 500000 && (
-                                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
-                                    SSM Registration Required ({">"} RM 500k)
-                                </span>
+                                <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                                    SSM Registration Required (&gt; RM 500k)
+                                </Badge>
                             )}
-                        </div>
-                        <div className="space-y-4">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-black rounded-full"></div>
-                                    Cash on Hand
-                                </span>
-                                <span className="font-medium text-gray-900">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(summary.cash_on_hand)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
-                                    Expected Revenue
-                                </span>
-                                <span className="font-medium text-gray-900">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalReceivable)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                                    Upcoming Bills
-                                </span>
-                                <span className="font-medium text-gray-900">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable)}
-                                </span>
-                            </div>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-6 pt-0">
+                            <div className="space-y-5">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-primary"></div>
+                                        Cash on Hand
+                                    </span>
+                                    <span className="font-medium">
+                                        {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(summary.cash_on_hand)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-muted-foreground/40"></div>
+                                        Expected Revenue
+                                    </span>
+                                    <span className="font-medium">
+                                        {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalReceivable)}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-2">
+                                        <div className="h-3 w-3 rounded-full bg-destructive/60"></div>
+                                        Upcoming Bills
+                                    </span>
+                                    <span className="font-medium">
+                                        {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable)}
+                                    </span>
+                                </div>
 
-                            {/* Progress Bar */}
-                            <div className="h-5 w-full flex rounded-full overflow-hidden mt-6 bg-gray-100">
-                                {cashPercent > 0 && (
-                                    <div
-                                        style={{ width: `${cashPercent}%` }}
-                                        className="bg-black transition-all duration-500"
-                                        title={`Cash: ${cashPercent.toFixed(1)}%`}
-                                    ></div>
-                                )}
-                                {receivablePercent > 0 && (
-                                    <div
-                                        style={{ width: `${receivablePercent}%` }}
-                                        className="bg-gray-300 transition-all duration-500"
-                                        title={`Receivables: ${receivablePercent.toFixed(1)}%`}
-                                    ></div>
-                                )}
-                                {payablePercent > 0 && (
-                                    <div
-                                        style={{ width: `${payablePercent}%` }}
-                                        className="bg-red-400 transition-all duration-500"
-                                        title={`Payables: ${payablePercent.toFixed(1)}%`}
-                                    ></div>
-                                )}
+                                {/* Progress Bar */}
+                                <div className="h-5 w-full flex rounded-full overflow-hidden mt-8 bg-muted">
+                                    {cashPercent > 0 && (
+                                        <div
+                                            style={{ width: `${cashPercent}%` }}
+                                            className="bg-primary transition-all duration-500"
+                                            title={`Cash: ${cashPercent.toFixed(1)}%`}
+                                        ></div>
+                                    )}
+                                    {receivablePercent > 0 && (
+                                        <div
+                                            style={{ width: `${receivablePercent}%` }}
+                                            className="bg-muted-foreground/40 transition-all duration-500"
+                                            title={`Receivables: ${receivablePercent.toFixed(1)}%`}
+                                        ></div>
+                                    )}
+                                    {payablePercent > 0 && (
+                                        <div
+                                            style={{ width: `${payablePercent}%` }}
+                                            className="bg-destructive/60 transition-all duration-500"
+                                            title={`Payables: ${payablePercent.toFixed(1)}%`}
+                                        ></div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="flex flex-col sm:flex-row gap-6">
-                        <div className="flex-1 bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
-                                <h3 className="font-medium text-sm flex items-center justify-between">
-                                    Active E-Invoices (Customer)
-                                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold tracking-wide uppercase">Issuing</span>
-                                </h3>
-                            </div>
-                            <div className="p-4">
+                    <div className="flex flex-col sm:flex-row gap-6 sm:gap-8">
+                        <Card className="flex-1 min-w-0">
+                            <CardHeader className="pb-4 pt-6 px-6">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-sm font-medium">Active E-Invoices (Customer)</CardTitle>
+                                    <Badge variant="secondary" className="text-[10px]">Issuing</Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="px-6 pb-6">
                                 <AlertCard
                                     title="Customer Receivables"
                                     items={summary.client_pending.filter((inv: any) => inv.type === "issuing")}
                                     baseCurrency={summary.base_currency}
                                 />
-                            </div>
-                        </div>
-                        <div className="flex-1 bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl overflow-hidden">
-                            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
-                                <h3 className="font-medium text-sm flex items-center justify-between">
-                                    Supplier Bills
-                                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-semibold tracking-wide uppercase">Receiving</span>
-                                </h3>
-                            </div>
-                            <div className="p-4">
+                            </CardContent>
+                        </Card>
+                        <Card className="flex-1 min-w-0">
+                            <CardHeader className="pb-4 pt-6 px-6">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-sm font-medium">Supplier Bills</CardTitle>
+                                    <Badge variant="secondary" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200">Receiving</Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="px-6 pb-6">
                                 <AlertCard
                                     title="Upcoming Bills"
                                     items={summary.supplier_pending}
                                     isSupplier={true}
                                     baseCurrency={summary.base_currency}
                                 />
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
 
                 {/* Sidebar Pane */}
-                <div className="lg:col-span-4 space-y-6 sticky top-6">
+                <div className="lg:col-span-4 space-y-6 sticky top-8">
                     <QuickActions />
                 </div>
             </div>
