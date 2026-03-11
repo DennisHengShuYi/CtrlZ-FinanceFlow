@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.supabase_client import supabase
 from app.auth import require_auth
-from app.invoice_service import get_company
+from app.invoice_service import get_company, get_company_with_fallback
 
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
@@ -57,6 +57,10 @@ class TopProduct(Product):
 class MostEnquired(BaseModel):
     name: str
     inquiries: int
+
+
+# We use the centralized version in app.invoice_service
+_resolve_company = get_company_with_fallback
 
 
 # --- Helper: compute scores (same logic as before, using DB product names) ---
@@ -130,7 +134,7 @@ async def get_products(claims: dict[str, Any] = Depends(require_auth)):
     if not supabase:
         return []
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await _resolve_company(user_id)
     if not company:
         return []
     
@@ -143,7 +147,7 @@ async def get_top_products(limit: int = 5, claims: dict[str, Any] = Depends(requ
     if not supabase:
         return []
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await _resolve_company(user_id)
     if not company:
         return []
 
@@ -169,7 +173,7 @@ async def get_most_enquired_product(claims: dict[str, Any] = Depends(require_aut
     if not supabase:
          return {"name": "None", "inquiries": 0}
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await _resolve_company(user_id)
     if not company:
         return {"name": "None", "inquiries": 0}
 
@@ -187,7 +191,7 @@ async def create_product(product: ProductCreate, claims: dict[str, Any] = Depend
         raise HTTPException(status_code=503, detail="Database not available")
     
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await _resolve_company(user_id)
     if not company:
         raise HTTPException(status_code=400, detail="Company not found")
 

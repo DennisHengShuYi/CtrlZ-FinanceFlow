@@ -11,8 +11,36 @@ interface Client {
   business_reg: string | null;
   person_in_charge: string | null;
   type: string | null;
+  country: string | null;
+  address: string | null;
   created_at: string;
 }
+
+const COUNTRY_CURRENCY: Record<string, string> = {
+  MY: "MYR", SG: "SGD", ID: "IDR", PH: "PHP", TH: "THB", VN: "VND",
+  US: "USD", GB: "GBP", AU: "AUD", JP: "JPY", KR: "KRW", CN: "CNY",
+  IN: "INR", AE: "AED", SA: "SAR", BN: "BND", KH: "KHR", LA: "LAK", MM: "MMK",
+};
+
+const COUNTRY_OPTIONS = [
+  { code: "", label: "— Not set —" },
+  { code: "MY", label: "🇲🇾 Malaysia (MYR)" },
+  { code: "SG", label: "🇸🇬 Singapore (SGD)" },
+  { code: "ID", label: "🇮🇩 Indonesia (IDR)" },
+  { code: "PH", label: "🇵🇭 Philippines (PHP)" },
+  { code: "TH", label: "🇹🇭 Thailand (THB)" },
+  { code: "VN", label: "🇻🇳 Vietnam (VND)" },
+  { code: "US", label: "🇺🇸 United States (USD)" },
+  { code: "GB", label: "🇬🇧 United Kingdom (GBP)" },
+  { code: "AU", label: "🇦🇺 Australia (AUD)" },
+  { code: "JP", label: "🇯🇵 Japan (JPY)" },
+  { code: "KR", label: "🇰🇷 South Korea (KRW)" },
+  { code: "CN", label: "🇨🇳 China (CNY)" },
+  { code: "IN", label: "🇮🇳 India (INR)" },
+  { code: "AE", label: "🇦🇪 UAE (AED)" },
+  { code: "SA", label: "🇸🇦 Saudi Arabia (SAR)" },
+  { code: "BN", label: "🇧🇳 Brunei (BND)" },
+];
 
 const EMPTY_FORM = {
   name: "",
@@ -21,6 +49,8 @@ const EMPTY_FORM = {
   business_reg: "",
   person_in_charge: "",
   type: "customer" as string,
+  country: "",
+  address: "",
 };
 
 export default function ClientsPage() {
@@ -61,6 +91,8 @@ export default function ClientsPage() {
       business_reg: c.business_reg || "",
       person_in_charge: c.person_in_charge || "",
       type: c.type || "customer",
+      country: c.country || "",
+      address: c.address || "",
     });
     setShowModal(true);
   }
@@ -136,6 +168,7 @@ export default function ClientsPage() {
               <tr>
                 <th>Name</th>
                 <th>Type</th>
+                <th>Country / Currency</th>
                 <th>Phone</th>
                 <th>Contact</th>
                 <th>Person in Charge</th>
@@ -153,6 +186,14 @@ export default function ClientsPage() {
                     >
                       {c.type || "customer"}
                     </span>
+                  </td>
+                  <td>
+                    {c.country ? (
+                      <span className="text-xs">
+                        <span className="font-medium">{c.country}</span>
+                        <span className="text-gray-500 ml-1">({COUNTRY_CURRENCY[c.country] || "MYR"})</span>
+                      </span>
+                    ) : "—"}
                   </td>
                   <td>{c.phone_number || "—"}</td>
                   <td>{c.contact_info || "—"}</td>
@@ -226,6 +267,22 @@ export default function ClientsPage() {
                   />
                 </div>
                 <div className="form-field">
+                  <label>Country</label>
+                  <select
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  >
+                    {COUNTRY_OPTIONS.map((opt) => (
+                      <option key={opt.code} value={opt.code}>{opt.label}</option>
+                    ))}
+                  </select>
+                  {form.country && (
+                    <span className="text-xs text-gray-500 mt-1">
+                      Auto-currency: {COUNTRY_CURRENCY[form.country] || "MYR"}
+                    </span>
+                  )}
+                </div>
+                <div className="form-field">
                   <label>Email / Contact Info</label>
                   <input
                     placeholder="email@example.com"
@@ -252,6 +309,16 @@ export default function ClientsPage() {
                     value={form.business_reg}
                     onChange={(e) =>
                       setForm({ ...form, business_reg: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="form-field full-width">
+                  <label>Address</label>
+                  <input
+                    placeholder="123 Main Street, City, State"
+                    value={form.address}
+                    onChange={(e) =>
+                      setForm({ ...form, address: e.target.value })
                     }
                   />
                 </div>

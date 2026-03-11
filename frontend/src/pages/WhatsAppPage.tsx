@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useApiFetch } from "../hooks/useApiFetch";
-import { Send, Bot, User, Loader2, Paperclip, X, FileText, RefreshCw, Code } from "lucide-react";
+import { Send, Bot, User, Loader2, Paperclip, X, FileText, RefreshCw, Code, ChevronDown } from "lucide-react";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -28,11 +28,52 @@ export default function WhatsAppPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeJsonIndex, setActiveJsonIndex] = useState<number | null>(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Client/Supplier selection for "texting as"
+  const [clients, setClients] = useState<{ id: string; name: string; phone_number: string | null; type: string }[]>([]);
+  const [selectedClientPhone, setSelectedClientPhone] = useState("web-ui-unified");
+  const [selectedClientName, setSelectedClientName] = useState("Default (Sandbox)");
+  const [selectedClientType, setSelectedClientType] = useState<"customer" | "supplier">("customer");
+
+  useEffect(() => {
+    apiFetch("/api/clients/").then((res: any) => {
+      const list = res.clients || res || [];
+      setClients(list);
+    }).catch(() => {});
+  }, []);
+
+  const customers = clients.filter((c) => c.type === "customer" && c.phone_number);
+  const suppliers = clients.filter((c) => c.type === "supplier" && c.phone_number);
+
+  function handleClientChange(phone: string) {
+    setSelectedClientPhone(phone);
+    if (phone === "web-ui-unified") {
+      setSelectedClientName("Default (Sandbox)");
+      setSelectedClientType("customer");
+    } else {
+      const c = clients.find((cl) => cl.phone_number === phone);
+      setSelectedClientName(c?.name || phone);
+      setSelectedClientType((c?.type as "customer" | "supplier") || "customer");
+    }
+  }
 
   async function handleResetSession() {
     if (!window.confirm("Are you sure you want to reset the AI memory for this session?")) return;
     try {
-      await apiFetch("/api/whatsapp/unified/session?sender_phone=web-ui-unified", {
+      await apiFetch(`/api/whatsapp/unified/session?sender_phone=${encodeURIComponent(selectedClientPhone)}`, {
         method: "DELETE"
       });
       setMessages([
@@ -71,7 +112,7 @@ export default function WhatsAppPage() {
     try {
       const formData = new FormData();
       formData.append("message", userMsg);
-      formData.append("sender_phone", "web-ui-unified");
+      formData.append("sender_phone", selectedClientPhone);
       if (fileToSend) {
         formData.append("file", fileToSend);
       }
@@ -81,11 +122,13 @@ export default function WhatsAppPage() {
         body: formData,
       });
 
-      let reply = res.reply || "";
+      let reply = res.reply || res.message || "";
       if (res.status === "incomplete") {
         reply = `🔍 I need a bit more info:\n\n${(res.questions || []).map((q: string, i: number) => `${i + 1}. ${q}`).join("\n")}`;
       } else if (res.status === "client_not_found") {
         reply = `⚠️ ${res.message}`;
+      } else if (res.status === "rejected") {
+        reply = `🚫 ${reply}`;
       } else if (res.status === "error") {
         reply = `❌ ${res.message || "Something went wrong."}`;
       }
@@ -148,9 +191,71 @@ export default function WhatsAppPage() {
       <div className="flex-1 min-h-0 flex gap-6 mt-4">
         {/* LEFT PANE: Chat */}
         <div className="chat-container flex flex-col flex-1 min-w-0 border border-white/10 rounded-xl overflow-hidden bg-[#111]">
-          <div className="p-3 border-b border-white/10 bg-[#161616] flex items-center gap-2">
-            <Bot size={16} className="text-[#0070f3]" />
-            <span className="text-sm font-medium">WhatsApp Interface</span>
+          <div className="p-3 border-b border-white/10 bg-[#161616] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot size={16} className="text-[#0070f3]" />
+              <span className="text-sm font-medium">WhatsApp Interface</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">
+                Texting as {selectedClientType === "supplier" ? "Supplier" : "Customer"}:
+              </span>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setDropdownOpen((v) => !v)}
+                  className="flex items-center gap-1.5 bg-[#1a1a1a] border border-white/10 rounded-md px-3 py-1.5 text-xs text-white cursor-pointer hover:border-[#0070f3]/50 focus:outline-none focus:border-[#0070f3] transition-colors min-w-[160px]"
+                >
+                  <span className="truncate">{selectedClientName}</span>
+                  <ChevronDown size={12} className={`text-gray-500 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+                {dropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-72 bg-[#1a1a1a] border border-white/10 rounded-lg shadow-2xl overflow-hidden">
+                    <div className="max-h-64 overflow-y-auto">
+                      <button
+                        type="button"
+                        onClick={() => { handleClientChange("web-ui-unified"); setDropdownOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-[#0070f3]/20 transition-colors ${selectedClientPhone === "web-ui-unified" ? "bg-[#0070f3]/10 text-[#0070f3]" : "text-white"}`}
+                      >
+                        Default (Sandbox)
+                      </button>
+                      {customers.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider bg-[#111] sticky top-0">Customers</div>
+                          {customers.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { handleClientChange(c.phone_number!); setDropdownOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[#0070f3]/20 transition-colors ${selectedClientPhone === c.phone_number ? "bg-[#0070f3]/10 text-[#0070f3]" : "text-white"}`}
+                            >
+                              <span className="font-medium">{c.name}</span>
+                              <span className="text-gray-500 ml-1.5">{c.phone_number}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {suppliers.length > 0 && (
+                        <>
+                          <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider bg-[#111] sticky top-0">Suppliers</div>
+                          {suppliers.map((c) => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => { handleClientChange(c.phone_number!); setDropdownOpen(false); }}
+                              className={`w-full text-left px-3 py-2 text-xs hover:bg-[#0070f3]/20 transition-colors ${selectedClientPhone === c.phone_number ? "bg-[#0070f3]/10 text-[#0070f3]" : "text-white"}`}
+                            >
+                              <span className="font-medium">{c.name}</span>
+                              <span className="text-gray-500 ml-1.5">{c.phone_number}</span>
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="chat-messages flex-1 overflow-y-auto p-4">
@@ -198,6 +303,28 @@ export default function WhatsAppPage() {
                     <div className="mt-2 p-3 bg-green-500/20 text-green-100 rounded-md border border-green-500/40">
                       <p className="text-sm font-bold">✅ Receipt Matched</p>
                       <p className="text-xs opacity-90 mt-1">Invoice: {msg.data.invoice_number} Paid</p>
+                    </div>
+                  )}
+                  {msg.data && msg.data.invoice && (
+                    <div className="mt-3 p-3 bg-[#1a1a1a] rounded-lg border border-white/10 flex items-center justify-between hover:bg-[#222] transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#0070f3]/10 rounded flex items-center justify-center text-[#0070f3]">
+                          <FileText size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{msg.data.invoice.invoice_number}.pdf</p>
+                          <p className="text-xs text-gray-500">Invoice • {msg.data.invoice.total_amount} {msg.data.invoice.currency}</p>
+                        </div>
+                      </div>
+                      <a
+                        href={`${window.location.origin.replace(':5173', ':8000').replace(':5174', ':8000')}/api/invoices/${msg.data.invoice.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-gray-400 hover:text-[#0070f3] hover:bg-[#0070f3]/10 rounded-full transition-all"
+                        title="Download PDF"
+                      >
+                        <Paperclip size={18} />
+                      </a>
                     </div>
                   )}
                 </div>

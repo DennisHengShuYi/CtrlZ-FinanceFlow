@@ -71,7 +71,8 @@ Rules for Order Intent & Data Collection:
 - If all required info (item and quantity) is present, set status to "complete".
 - For `price` and `client_name`, return null if not explicitly provided in the text.
 - Extract the `unit` for each item (e.g., "kg", "boxes", "cans", "pcs"). Default to "pcs" if unclear.
-- Extract `origin_country` as ISO 2-letter code (e.g., "MY", "ID") if mentioned. Default to null.
+- Extract `origin_country` as ISO 2-letter code (e.g., "MY", "ID") if mentioned. Infer from context clues (e.g., "Indonesian palm sugar" -> "ID", "Thai rice" -> "TH"). Default to null.
+- Extract `unit_price` (price per single unit) if mentioned explicitly. If only a total price is given, compute unit_price = price / quantity. If no price at all, set both price and unit_price to null.
 
 Address & Identity Extraction:
 - Extract vendor (supplier) info if mentioned: name, full address, and country (ISO 2-letter code).
@@ -103,7 +104,7 @@ Output Format (JSON):
     "currency": "MYR",
     "notes": string | null,
     "items": [
-      {{ "description": string, "price": number | null, "quantity": number, "unit": string, "origin_country": string | null }}
+      {{ "description": string, "price": number | null, "unit_price": number | null, "quantity": number, "unit": string, "origin_country": string | null }}
     ]
   }},
   "questions": ["friendly follow-up question here"]
@@ -274,6 +275,47 @@ Do not include markdown formatting.
     except Exception as e:
         print(f"Extraction V2 Error: {e}")
         return {"error": str(e)}
+
+
+async def generate_rejection_message(insufficient_items: list[dict], buyer_name: str = "Customer") -> str:
+    """
+    Generate a polite, professional rejection/apology message for the client
+    when items are unavailable or stock is insufficient.
+    """
+    try:
+        items_summary = "\n".join(
+            f"- {item['description']}: requested {item['requested']}, available {item['available']} (reason: {item['reason']})"
+            for item in insufficient_items
+        )
+        system_prompt = f"""You are a polite and professional customer service AI for a trading company.
+The customer "{buyer_name}" placed an order, but the following items cannot be fulfilled:
+
+{items_summary}
+
+Write a short, friendly WhatsApp-style rejection/apology message that:
+1. Apologizes for the inconvenience
+2. Clearly states which items are unavailable and why (in simple terms, no internal jargon)
+3. Suggests the customer try again later or contact us for alternatives
+4. Keeps a warm, professional tone
+
+Return ONLY the message text, no JSON formatting."""
+
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=system_prompt,
+            config=types.GenerateContentConfig(
+                temperature=0.3,
+            ),
+        )
+        return response.text.strip()
+    except Exception as e:
+        # Fallback static message
+        item_names = ", ".join(item["description"] for item in insufficient_items)
+        return (
+            f"Dear {buyer_name}, we're sorry but we are currently unable to fulfill your order "
+            f"for the following items: {item_names}. "
+            f"Please try again later or contact us for alternatives. We apologize for the inconvenience."
+        )
 
 
 async def evaluate_supplier_bill(

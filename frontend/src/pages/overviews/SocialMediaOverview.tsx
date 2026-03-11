@@ -168,10 +168,10 @@ export default function SocialMediaOverview() {
         <div className="page-container flex flex-col gap-5"> {/* Flex layout with gap-5 for reliable spacing between containers */}
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-gray-900">
                         {greeting}, {displayName} 👋
                     </h1>
-                    <p className="page-subtitle">
+                    <p className="text-base text-gray-500">
                         Here's what's happening with your social media today.
                     </p>
                 </div>
@@ -183,29 +183,29 @@ export default function SocialMediaOverview() {
                     <div className="stat-card-header">
                         <div className="stat-icon-wrapper">❤️</div>
                     </div>
-                    <div className="stat-card-body">
-                        <div className="stat-value">{totalLikes.toLocaleString()}</div>
-                        <div className="stat-label">Total Likes</div>
+                    <div className="stat-card-body mt-4">
+                        <div className="stat-value text-4xl md:text-5xl font-bold tracking-tighter text-gray-900 drop-shadow-sm block mb-1">{totalLikes.toLocaleString()}</div>
+                        <div className="stat-label text-base font-medium text-gray-500 uppercase tracking-widest">Total Likes</div>
                     </div>
                 </div>
                 <div className="overview-stat-card">
                     <div className="stat-card-header">
                         <div className="stat-icon-wrapper">👥</div>
                     </div>
-                    <div className="stat-card-body">
-                        <div className="stat-value">{totalFollowers.toLocaleString()}</div>
-                        <div className="stat-label">Total Followers</div>
+                    <div className="stat-card-body mt-4">
+                        <div className="stat-value text-4xl md:text-5xl font-bold tracking-tighter text-gray-900 drop-shadow-sm block mb-1">{totalFollowers.toLocaleString()}</div>
+                        <div className="stat-label text-base font-medium text-gray-500 uppercase tracking-widest">Total Followers</div>
                     </div>
                 </div>
                 <div className="overview-stat-card">
                     <div className="stat-card-header">
                         <div className="stat-icon-wrapper">🔥</div>
                     </div>
-                    <div className="stat-card-body">
-                        <div className="stat-value truncate" title={mostInteractedPost.caption}>
+                    <div className="stat-card-body mt-4">
+                        <div className="stat-value text-2xl md:text-3xl font-bold tracking-tighter text-gray-900 drop-shadow-sm block mb-1 truncate" title={mostInteractedPost.caption}>
                             {mostInteractedPost.caption}
                         </div>
-                        <div className="stat-label">Most Interacted Post with Score: {mostInteractedPost.score}</div>
+                        <div className="stat-label text-base font-medium text-gray-500 uppercase tracking-widest">Most Interacted Post with Score: {mostInteractedPost.score}</div>
                     </div>
                 </div>
             </div>

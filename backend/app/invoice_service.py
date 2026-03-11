@@ -34,6 +34,17 @@ def get_company(user_id: str) -> Optional[dict]:
     return result.data[0] if result.data else None
 
 
+@with_retry()
+async def get_company_with_fallback(user_id: str) -> Optional[dict]:
+    """Get company for user, falling back to first available record in mock/dev mode."""
+    company = get_company(user_id)
+    if company:
+        return company
+    # Fallback for mock mode users
+    result = supabase.table("user_companies").select("*").order("created_at").limit(1).execute()
+    return result.data[0] if result.data else None
+
+
 def update_company(company_id: str, data: dict) -> dict:
     result = (
         supabase.table("user_companies").update(data).eq("id", company_id).execute()

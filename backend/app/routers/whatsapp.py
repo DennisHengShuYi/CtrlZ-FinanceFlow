@@ -14,10 +14,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile,
 
 from app.auth import require_auth
 from app.models import WhatsAppMessage
-from app.ai_service import extract_invoice_data
+from app.ai_service import extract_invoice_data, generate_rejection_message
 from app.currency_service import fetch_exchange_rate
 from app.invoice_service import (
-    get_company,
+    get_company_with_fallback,
     get_client_by_name,
     get_client_by_phone,
     get_client,
@@ -198,7 +198,7 @@ async def _smart_inventory_check(
     company_id: str,
     items: list[dict],
     base_currency: str,
-) -> tuple[list[dict], list[str]]:
+) -> tuple[list[dict], list[str], list[dict]]:
     """
     Step 2: Smart Inventory Check with Financial Buffer Check.
     For each item, match to a product. If stock would drop below threshold:
@@ -208,10 +208,12 @@ async def _smart_inventory_check(
       4. Update inventory
 
     Returns:
-        (restock_invoices, agent_steps) — list of created restock invoices and log steps.
+        (restock_invoices, agent_steps, insufficient_items) — list of created restock invoices,
+        log steps, and items that remain insufficient after restock attempts.
     """
     agent_steps = []
     restock_invoices = []
+    insufficient_items = []
 
     # Pre-fetch financial summary once for all items
     financial_summary = get_financial_summary(company_id)
@@ -225,7 +227,13 @@ async def _smart_inventory_check(
 
         product = get_product_by_name(company_id, description)
         if not product:
-            agent_steps.append(f"Product '{description}' not found in inventory — skipping restock check")
+            agent_steps.append(f"Product '{description}' not found in inventory — rejecting item")
+            insufficient_items.append({
+                "description": description,
+                "requested": requested_qty,
+                "available": 0,
+                "reason": "product not found"
+            })
             continue
 
         current_inventory = product.get("inventory", 0)
@@ -252,12 +260,14 @@ async def _smart_inventory_check(
 
         if not supplier_id:
             agent_steps.append(f"WARNING: No supplier linked for '{description}' — cannot auto-restock")
+            insufficient_items.append({"description": description, "requested": requested_qty, "available": current_inventory, "reason": "no supplier linked"})
             continue
 
         # Get supplier info
         supplier = get_client(supplier_id)
         if not supplier:
             agent_steps.append(f"WARNING: Supplier ID {supplier_id} not found")
+            insufficient_items.append({"description": description, "requested": requested_qty, "available": current_inventory, "reason": "supplier not found"})
             continue
 
         supplier_currency = product.get("currency", base_currency)
@@ -280,6 +290,7 @@ async def _smart_inventory_check(
                 f"RESTOCK BLOCKED ({description}): Cost {restock_cost_base} {base_currency} exceeds "
                 f"cash on hand {cash_on_hand} {base_currency} — skipping"
             )
+            insufficient_items.append({"description": description, "requested": requested_qty, "available": current_inventory, "reason": "insufficient cash on hand"})
             continue
 
         if restock_cost_base > remaining_budget:
@@ -290,6 +301,7 @@ async def _smart_inventory_check(
                     f"RESTOCK BLOCKED ({description}): Insufficient budget "
                     f"(available: {remaining_budget} {base_currency}) — skipping"
                 )
+                insufficient_items.append({"description": description, "requested": requested_qty, "available": current_inventory, "reason": "insufficient budget"})
                 continue
             agent_steps.append(
                 f"Budget constrained ({description}): Reduced restock from {restock_amount} to {affordable_qty} "
@@ -328,6 +340,7 @@ async def _smart_inventory_check(
         restock_invoice = create_invoice(restock_invoice_data, restock_items)
         if not restock_invoice:
             agent_steps.append(f"WARNING: Failed to create restock invoice for {description} (PGRST204)")
+            insufficient_items.append({"description": description, "requested": requested_qty, "available": current_inventory, "reason": "restock invoice creation failed"})
             continue
 
         restock_invoices.append(restock_invoice)
@@ -361,7 +374,7 @@ async def _smart_inventory_check(
             f"(was {current_inventory}, now {new_inventory}). Invoice: {restock_invoice_number}"
         )
 
-    return restock_invoices, agent_steps
+    return restock_invoices, agent_steps, insufficient_items
 
 
 @router.post("/webhook")
@@ -380,7 +393,7 @@ async def whatsapp_webhook(
     6. Return chain-of-thought agent_steps for debugging
     """
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         return {
             "status": "error",
@@ -442,37 +455,52 @@ async def whatsapp_webhook(
             "agent_steps": agent_steps,
         }
 
+    # Use resolved client name for personalized greetings
+    buyer_display = client.get("name") or buyer_display
+
     if client.get("_just_created"):
         agent_steps.append(f"Auto-created new customer: {client['name']}")
     else:
         agent_steps.append(f"Resolved buyer: {client['name']} (ID: {client['id'][:8]}...)")
 
     # ── Step 2: Smart Inventory Check + Auto-Restock ──
-    restock_invoices, inventory_steps = await _smart_inventory_check(
+    restock_invoices, inventory_steps, insufficient_items = await _smart_inventory_check(
         company_id, items, base_currency
     )
     agent_steps.extend(inventory_steps)
 
-    # ── Step 3: Generate Final Customer Invoice ──
-    # Ensure all items have prices (use product price as fallback)
-    for item in items:
-        if item.get("price") is None:
-            product = get_product_by_name(company_id, item["description"])
-            if product:
-                item["price"] = float(product.get("price", 0))
-            else:
-                item["price"] = 0
+    # ── Step 2b: Reject if items are insufficient after restock attempts ──
+    if insufficient_items:
+        rejection_message = await generate_rejection_message(insufficient_items, buyer_display)
+        agent_steps.append(f"Order REJECTED: {len(insufficient_items)} item(s) unavailable — skipping invoice creation")
+        print(json.dumps({"agent_steps": agent_steps}, indent=2))
+        return {
+            "status": "rejected",
+            "reply": rejection_message,
+            "message": rejection_message,
+            "insufficient_items": insufficient_items,
+            "restock_invoices": restock_invoices,
+            "agent_steps": agent_steps,
+        }
 
-    # Personalize currency: use AI-detected currency, or derive from buyer country
+    # ── Step 3: Generate Final Customer Invoice ──
+
+    # 3a. Determine invoice currency FIRST (before pricing)
     invoice_currency = data.get("currency", "MYR")
     effective_country = buyer_country or client.get("country")
-    if effective_country and invoice_currency == "MYR":
+    client_country = client.get("country")
+    if client_country:
+        client_currency = _detect_currency_from_country(client_country)
+        if client_currency != base_currency:
+            invoice_currency = client_currency
+            agent_steps.append(f"Currency set to {invoice_currency} from client profile (country: {client_country})")
+    elif effective_country and invoice_currency == "MYR":
         detected_currency = _detect_currency_from_country(effective_country)
         if detected_currency != "MYR":
             invoice_currency = detected_currency
             agent_steps.append(f"Currency personalized to {invoice_currency} based on buyer location ({effective_country})")
 
-    # Auto-calculate exchange rate if currency differs from base
+    # 3b. Fetch exchange rate if currency differs from base
     exchange_rate = Decimal("1.0")
     if invoice_currency != base_currency:
         try:
@@ -480,6 +508,34 @@ async def whatsapp_webhook(
             agent_steps.append(f"Exchange rate: 1 {invoice_currency} = {exchange_rate} {base_currency}")
         except Exception as e:
             agent_steps.append(f"Exchange rate lookup failed: {e}")
+
+    # 3c. Resolve item prices — convert from base currency to invoice currency
+    for item in items:
+        # Fill origin_country from product if not AI-detected
+        if not item.get("origin_country"):
+            product = get_product_by_name(company_id, item["description"])
+            if product and product.get("origin_country"):
+                item["origin_country"] = product["origin_country"]
+
+        if item.get("price") is None:
+            product = get_product_by_name(company_id, item["description"])
+            base_price = float(product.get("price", 0)) if product else 0
+
+            # Convert base_currency price → invoice_currency price
+            if invoice_currency != base_currency and float(exchange_rate) > 0:
+                item_price = round(base_price / float(exchange_rate), 2)
+                agent_steps.append(
+                    f"Converted {item.get('description')}: {base_price} {base_currency} → {item_price} {invoice_currency} (rate: {exchange_rate})"
+                )
+            else:
+                item_price = base_price
+
+            item["price"] = item_price
+            item["unit_price"] = item_price
+        else:
+            # AI provided a price — ensure unit_price is set
+            if item.get("unit_price") is None:
+                item["unit_price"] = float(item["price"])
 
     invoice_number = _generate_invoice_number()
     invoice_date = _normalize_date(data.get("date"))
@@ -495,21 +551,6 @@ async def whatsapp_webhook(
         "exchange_rate": str(exchange_rate),
         "notes": notes,
     }
-
-    # ── Step 3b: Pre-check stock availability (agentic warning) ──
-    stock_warnings = []
-    for item in items:
-        product = get_product_by_name(company_id, item["description"])
-        if product:
-            current_inv = product.get("inventory", 0)
-            requested = item.get("quantity", 0)
-            if requested > current_inv:
-                stock_warnings.append(
-                    f"'{item['description']}': requested {requested}, only {current_inv} in stock"
-                )
-                agent_steps.append(
-                    f"Stock Warning ({item['description']}): requested {requested} but only {current_inv} available"
-                )
 
     # create_invoice with type="issuing" automatically decrements inventory
     invoice = create_invoice(invoice_data, items, background_tasks)
@@ -541,16 +582,54 @@ async def whatsapp_webhook(
     # ── Visual Debugging Output (Terminal) ──
     print(json.dumps({"agent_steps": agent_steps}, indent=2))
 
-    response = {
+    # ── Build Flattened Response Payload ──
+    vendor_payload = {
+        "name": company.get("name"),
+        "address": company.get("address", ""),
+        "country": company.get("country", "MY"),
+    }
+
+    buyer_payload = {
+        "name": client.get("name"),
+        "address": client.get("address", ""),
+        "country": client.get("country", ""),
+    }
+
+    formatted_items = []
+    subtotal = 0.0
+    for idx, item in enumerate(items, start=1):
+        qty = item.get("quantity", 0)
+        unit_price = item.get("unit_price", 0.0)
+        amount = float(qty) * float(unit_price)
+        subtotal += amount
+        formatted_items.append({
+            "item_id": idx,
+            "description": item.get("description", ""),
+            "quantity": qty,
+            "unit": item.get("unit", "pcs"),
+            "unit_price": unit_price,
+            "amount": round(amount, 2),
+            "origin_country": item.get("origin_country", ""),
+        })
+
+    return {
+        # Required for Frontend UI
         "status": "complete",
+        "reply": f"Invoice {invoice_number} created successfully!",
         "message": f"Invoice {invoice_number} created successfully!",
-        "invoice": invoice,
+        "action_type": "text",
+        # Flattened Data Structure
+        "invoice_id": invoice_number,
+        "invoice_date": invoice_date,
+        "vendor": vendor_payload,
+        "buyer": buyer_payload,
+        "line_items": formatted_items,
+        "subtotal": round(subtotal, 2),
+        "currency": invoice_currency,
+        "notes": notes or "Test invoice in pre-vet format",
         "restock_invoices": restock_invoices,
         "agent_steps": agent_steps,
     }
-    if stock_warnings:
-        response["stock_warnings"] = stock_warnings
-    return response
 
 # ──────────────────────────────────────
 # Unified Agentic Interface (Frontend Sandbox)
@@ -569,10 +648,12 @@ async def unified_webhook(
     Supports both text messages and file uploads (receipts/invoices).
     """
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         return {"status": "error", "message": "Company not found."}
 
+    company_id = company["id"]
+    base_currency = company.get("base_currency", "MYR")
     agent_steps = []
 
     # 1. Handle File Upload if present
@@ -594,7 +675,7 @@ async def unified_webhook(
             agent_steps.append(f"Extracted Receipt: {receipt_data.get('amount')} {receipt_data.get('currency')}")
             
             # Find matching invoice
-            matches = match_receipt_to_invoice(company["id"], receipt_data)
+            matches = match_receipt_to_invoice(company_id, receipt_data)
             if matches:
                 invoice = matches[0]
                 agent_steps.append(f"Found Match: Invoice {invoice['invoice_number']} (Score: {invoice.get('match_score')})")
@@ -607,7 +688,7 @@ async def unified_webhook(
                     "date": receipt_data.get("transaction_date") or str(date_type.today()),
                     "currency": receipt_data.get("currency", "MYR"),
                 }
-                process_payment_verification(company["id"], payment_data)
+                process_payment_verification(company_id, payment_data)
                 agent_steps.append(f"Verification Successful: Invoice {invoice['invoice_number']} marked as PAID.")
                 
                 return {
@@ -627,36 +708,84 @@ async def unified_webhook(
         elif dtype == "SUPPLIER_INVOICE":
             # Extract detailed supplier invoice
             inv_v2 = await extract_supplier_invoice_v2(content, file.content_type)
-            agent_steps.append(f"Extracted Supplier Bill: {inv_v2.get('amount')} {inv_v2.get('currency')} from {inv_v2.get('vendor', {}).get('name')}")
-            
+            supplier_name = inv_v2.get("vendor", {}).get("name", "Unknown Supplier")
+            bill_amount = float(inv_v2.get("amount", 0))
+            bill_currency = inv_v2.get("currency", "MYR")
+            agent_steps.append(f"Extracted Supplier Bill: {bill_amount} {bill_currency} from {supplier_name}")
+
+            # Financial evaluation before creating invoice
+            from app.ai_service import evaluate_supplier_bill
+            financial_summary = get_financial_summary(company_id)
+            cash_on_hand = float(financial_summary.get("cash_on_hand", 0))
+            available_for_expenses = float(financial_summary.get("available_for_expenses", 0))
+            agent_steps.append(f"Financial Check: Cash={cash_on_hand} {base_currency}, Available={available_for_expenses} {base_currency}")
+
+            evaluation = await evaluate_supplier_bill(
+                amount=bill_amount,
+                currency=bill_currency,
+                description=f"Supplier invoice from {supplier_name}",
+                supplier_name=supplier_name,
+                cash_on_hand=cash_on_hand,
+                available_for_expenses=available_for_expenses,
+                base_currency=base_currency,
+                line_items=inv_v2.get("line_items", []),
+            )
+            decision = evaluation.get("decision", "defer")
+            agent_steps.append(f"AI Decision: {decision} — {evaluation.get('reason', '')}")
+
             # Create a 'receiving' invoice
-            from app.invoice_service import create_invoice
             invoice_data = {
-                "client_id": None, # Need to resolve supplier here, but for now we skip or create on the fly
+                "client_id": None,
                 "invoice_number": inv_v2.get("reference_number") or _generate_invoice_number(),
                 "date": inv_v2.get("transaction_date") or str(date_type.today()),
                 "month": (inv_v2.get("transaction_date") or str(date_type.today()))[:7],
-                "currency": inv_v2.get("currency", "MYR"),
+                "currency": bill_currency,
                 "type": "receiving",
             }
-            
-            # Resolve supplier (Step 1 of agentic flow)
-            supplier = _resolve_or_create_buyer(company["id"], "supplier-unknown", inv_v2.get("vendor"), None)
-            if supplier:
-                 invoice_data["client_id"] = supplier["id"]
-                 invoice = create_invoice(invoice_data, inv_v2.get("line_items", []), background_tasks)
-                 agent_steps.append(f"Supplier Invoice Tracked: {invoice['invoice_number']}")
-                 
-                 # The background_tasks in create_invoice should trigger evaluate_auto_payment automatically
-                 return {
-                     "status": "complete",
-                     "action_type": "supplier_invoice_approved",
-                     "reply": f"Supplier invoice received for {inv_v2.get('amount')} {inv_v2.get('currency')}. AI is evaluating payment safety against your cash flow...",
-                     "invoice_number": invoice["invoice_number"],
-                     "agent_steps": agent_steps
-                 }
+
+            # Resolve supplier
+            supplier = _resolve_or_create_buyer(company_id, sender_phone, inv_v2.get("vendor"), None)
+            if not supplier:
+                return {"status": "error", "reply": "Could not identify supplier on this bill.", "agent_steps": agent_steps}
+
+            invoice_data["client_id"] = supplier["id"]
+            invoice = create_invoice(invoice_data, inv_v2.get("line_items", []), background_tasks)
+            agent_steps.append(f"Supplier Invoice Tracked: {invoice['invoice_number']}")
+
+            if decision == "negotiate":
+                negotiation_msg = evaluation.get("negotiation_message") or "We'd like to discuss adjusted terms."
+                agent_steps.append(f"Negotiation recommended: {negotiation_msg}")
+                return {
+                    "status": "complete",
+                    "action_type": "supplier_invoice_negotiate",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n⚠️ {evaluation.get('reason', 'Budget is tight.')}\n\nRecommended counter-offer:\n{negotiation_msg}",
+                    "invoice_number": invoice["invoice_number"],
+                    "invoice": invoice,
+                    "evaluation": evaluation,
+                    "agent_steps": agent_steps,
+                }
+            elif decision == "defer":
+                agent_steps.append("Payment deferred — insufficient funds")
+                return {
+                    "status": "complete",
+                    "action_type": "supplier_invoice_negotiate",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n🚫 {evaluation.get('reason', 'Insufficient funds to pay this bill.')}\n\nPayment has been deferred. Please review your cash flow before proceeding.",
+                    "invoice_number": invoice["invoice_number"],
+                    "invoice": invoice,
+                    "evaluation": evaluation,
+                    "agent_steps": agent_steps,
+                }
             else:
-                 return {"status": "error", "reply": "Could not identify supplier on this bill."}
+                agent_steps.append("Auto-approved for payment")
+                return {
+                    "status": "complete",
+                    "action_type": "supplier_invoice_approved",
+                    "reply": f"Supplier invoice from {supplier_name} for {bill_amount} {bill_currency} recorded.\n\n✅ {evaluation.get('reason', 'Finances are healthy.')}\n\nThis bill has been auto-approved for payment.",
+                    "invoice_number": invoice["invoice_number"],
+                    "invoice": invoice,
+                    "evaluation": evaluation,
+                    "agent_steps": agent_steps,
+                }
 
         else:
             return {"status": "error", "reply": "I couldn't identify this as a receipt or supplier invoice.", "agent_steps": agent_steps}

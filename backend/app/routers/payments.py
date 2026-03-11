@@ -17,7 +17,7 @@ from app.invoice_service import (
     get_payments,
     get_payment,
     delete_payment,
-    get_company,
+    get_company_with_fallback,
     get_invoice,
     match_receipt_to_invoice,
     process_payment_verification,
@@ -26,33 +26,33 @@ from app.invoice_service import (
 router = APIRouter(prefix="/api/payments", tags=["payments"])
 
 
-def _ensure_company(claims: dict) -> str:
+async def _ensure_company(claims: dict) -> tuple[str, dict]:
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         raise HTTPException(status_code=400, detail="Create a company first.")
     return company["id"], company
 
 
 @router.get("/")
-def list_payments(claims: dict[str, Any] = Depends(require_auth)):
-    company_id, _ = _ensure_company(claims)
+async def list_payments(claims: dict[str, Any] = Depends(require_auth)):
+    company_id, _ = await _ensure_company(claims)
     return {"payments": get_payments(company_id)}
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_new_payment(
+async def create_new_payment(
     body: PaymentCreate,
     claims: dict[str, Any] = Depends(require_auth),
 ):
-    company_id, _ = _ensure_company(claims)
+    company_id, _ = await _ensure_company(claims)
     payment = create_payment(body.model_dump())
     return {"payment": payment}
 
 
 @router.delete("/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_payment(payment_id: str, claims: dict[str, Any] = Depends(require_auth)):
-    _ensure_company(claims)
+async def remove_payment(payment_id: str, claims: dict[str, Any] = Depends(require_auth)):
+    await _ensure_company(claims)
     delete_payment(payment_id)
 
 

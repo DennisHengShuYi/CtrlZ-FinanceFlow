@@ -347,6 +347,78 @@ body,
     0 1px 2px -1px hsl(0 0% 0% / 0.06);
 }
 
+/* ── Sidebar Groups (Nested Toggle) ── */
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: oklch(0.44 0 0);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+
+.sidebar-group-header:hover {
+  background: oklch(0.94 0 0);
+  color: #000000;
+}
+
+.sidebar-group-header.expanded {
+  color: #000000;
+}
+
+.sidebar-group-left {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.sidebar-chevron {
+  transition: transform 0.2s ease;
+  color: oklch(0.6 0 0);
+  flex-shrink: 0;
+}
+
+.sidebar-chevron.rotated {
+  transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.sidebar-submenu.open {
+  grid-template-rows: 1fr;
+}
+
+.sidebar-submenu-inner {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 1.5rem;
+}
+
+.sidebar-sublink {
+  font-weight: 450 !important;
+  font-size: 0.7875rem !important;
+  padding: 0.375rem 0.75rem !important;
+}
+
 .sidebar-footer {
   padding: 1rem;
   border-top: 1px solid oklch(0.92 0 0);
@@ -724,7 +796,7 @@ body,
   background: #ffffff;
   border: 1px solid oklch(0.92 0 0);
   border-radius: 10px;
-  overflow: hidden;
+  overflow-x: auto;
   animation: fadeInUp 0.35s ease both;
 }
 
@@ -755,6 +827,7 @@ body,
 
 .data-table {
   width: 100%;
+  min-width: 700px;
   border-collapse: collapse;
 }
 
@@ -887,6 +960,8 @@ body,
 .action-buttons {
   display: flex;
   gap: 0.25rem;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* =====================================================
@@ -955,8 +1030,8 @@ body,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   background: transparent;
@@ -964,6 +1039,9 @@ body,
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.12s ease;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 }
 
 .btn-icon:hover {

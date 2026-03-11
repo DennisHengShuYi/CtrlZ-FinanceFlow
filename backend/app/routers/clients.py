@@ -14,29 +14,29 @@ from app.invoice_service import (
     get_client,
     update_client,
     delete_client,
-    get_company,
+    get_company_with_fallback,
 )
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
 
-def _ensure_company(claims: dict) -> str:
+async def _ensure_company(claims: dict) -> str:
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         raise HTTPException(status_code=400, detail="Create a company first.")
     return company["id"]
 
 
 @router.get("/")
-def list_clients(claims: dict[str, Any] = Depends(require_auth)):
-    company_id = _ensure_company(claims)
+async def list_clients(claims: dict[str, Any] = Depends(require_auth)):
+    company_id = await _ensure_company(claims)
     return {"clients": get_clients(company_id)}
 
 
 @router.get("/{client_id}")
-def get_single_client(client_id: str, claims: dict[str, Any] = Depends(require_auth)):
-    _ensure_company(claims)
+async def get_single_client(client_id: str, claims: dict[str, Any] = Depends(require_auth)):
+    await _ensure_company(claims)
     client = get_client(client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found.")
@@ -44,11 +44,11 @@ def get_single_client(client_id: str, claims: dict[str, Any] = Depends(require_a
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_new_client(
+async def create_new_client(
     body: ClientCreate,
     claims: dict[str, Any] = Depends(require_auth),
 ):
-    company_id = _ensure_company(claims)
+    company_id = await _ensure_company(claims)
     data = body.model_dump()
     data["company_id"] = company_id
     client = create_client(data)
@@ -56,12 +56,12 @@ def create_new_client(
 
 
 @router.put("/{client_id}")
-def update_existing_client(
+async def update_existing_client(
     client_id: str,
     body: ClientCreate,
     claims: dict[str, Any] = Depends(require_auth),
 ):
-    company_id = _ensure_company(claims)
+    company_id = await _ensure_company(claims)
     data = body.model_dump(exclude_unset=True)
     # Always re-inject the correct company_id from auth to prevent empty-string UUID errors
     data["company_id"] = company_id
@@ -70,6 +70,6 @@ def update_existing_client(
 
 
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_client(client_id: str, claims: dict[str, Any] = Depends(require_auth)):
-    _ensure_company(claims)
+async def remove_client(client_id: str, claims: dict[str, Any] = Depends(require_auth)):
+    await _ensure_company(claims)
     delete_client(client_id)

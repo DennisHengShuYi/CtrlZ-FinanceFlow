@@ -16,10 +16,10 @@ export default function InventoryOverview() {
         <div className="page-container flex flex-col gap-5"> {/* Consistent padding layout */}
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-gray-900">
                         {greeting}, {displayName} 👋
                     </h1>
-                    <p className="page-subtitle">
+                    <p className="text-base text-gray-500">
                         Here's what's happening with your inventory today.
                     </p>
                 </div>

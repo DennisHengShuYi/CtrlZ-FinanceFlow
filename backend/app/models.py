@@ -38,7 +38,7 @@ class ClientCreate(BaseModel):
     person_in_charge: Optional[str] = None
     type: Optional[str] = Field(None, pattern="^(customer|supplier)$")
     address: Optional[str] = None
-    country: Optional[str] = None
+    country: Optional[str] = None  # ISO 2-letter code (e.g., "MY", "SG", "ID")
 
 
 class ClientOut(ClientCreate):

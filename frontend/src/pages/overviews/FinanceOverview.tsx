@@ -52,9 +52,13 @@ function StatCard({
                     </span>
                 )}
             </div>
-            <div className="stat-card-body">
-                <span className="stat-value">{value}</span>
-                <span className="stat-label">{label}</span>
+            <div className="stat-card-body mt-4">
+                <span className="stat-value text-4xl md:text-5xl font-bold tracking-tighter text-gray-900 drop-shadow-sm block mb-1">
+                    {value}
+                </span>
+                <span className="stat-label text-base font-medium text-gray-500 uppercase tracking-widest">
+                    {label}
+                </span>
             </div>
         </div>
     );
@@ -80,7 +84,7 @@ function AlertCard({
     }
 
     const total = items.reduce(
-        (sum, item) => sum + parseFloat(item.total_amount || 0),
+        (sum, item) => sum + (parseFloat(item.total_amount || 0) * (parseFloat(item.exchange_rate) || 1)),
         0,
     );
 
@@ -137,17 +141,21 @@ function QuickActions() {
     ];
 
     return (
-        <div className="quick-actions-card">
-            <h3>Quick Actions</h3>
-            <div className="quick-actions-grid gap-3 grid grid-cols-2 mt-4">
+        <div>
+            <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4 px-1">
+                Quick Actions
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
                 {actions.map((a) => (
                     <Link
                         key={a.label}
                         to={a.href}
-                        className="flex items-center gap-2 p-3 text-sm font-medium hover:bg-gray-50 text-gray-700 bg-white border border-[oklch(0.92_0_0)] rounded-lg transition-colors"
+                        className="group flex flex-col items-center justify-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 hover:-translate-y-0.5 transition-all text-gray-700"
                     >
-                        <a.icon size={16} className="text-black" />
-                        {a.label}
+                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                            <a.icon size={18} className="text-gray-600 group-hover:text-blue-600 transition-colors" />
+                        </div>
+                        <span className="text-xs font-semibold text-center">{a.label}</span>
                     </Link>
                 ))}
             </div>
@@ -213,11 +221,11 @@ export default function FinanceOverview() {
     }
 
     const totalReceivable = summary.client_pending.reduce(
-        (sum, item: any) => sum + parseFloat(item.total_amount || 0),
+        (sum, item: any) => sum + (parseFloat(item.total_amount || 0) * (parseFloat(item.exchange_rate) || 1)),
         0,
     );
     const totalPayable = summary.supplier_pending.reduce(
-        (sum, item: any) => sum + parseFloat(item.total_amount || 0),
+        (sum, item: any) => sum + (parseFloat(item.total_amount || 0) * (parseFloat(item.exchange_rate) || 1)),
         0,
     );
 
@@ -233,10 +241,10 @@ export default function FinanceOverview() {
         <div className="page-container animate-in fade-in duration-500">
             <div className="page-header">
                 <div>
-                    <h1 className="page-title">
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-gray-900">
                         {greeting}, {displayName} 👋
                     </h1>
-                    <p className="page-subtitle">
+                    <p className="text-base text-gray-500">
                         Here's what's happening with your finances today.
                     </p>
                 </div>
@@ -267,11 +275,12 @@ export default function FinanceOverview() {
                 />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="card">
-                        <div className="flex items-center justify-between border-b pb-4 mb-4">
-                            <h3 className="font-semibold text-lg">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8 items-start">
+                {/* Main Content Pane */}
+                <div className="lg:col-span-8 space-y-8">
+                    <div className="bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl p-6">
+                        <div className="flex items-center justify-between pb-4 mb-4 border-b border-gray-100">
+                            <h3 className="text-base font-semibold text-gray-900">
                                 Financial Flow
                             </h3>
                             {analysis?.totalRevenue >= 500000 && (
@@ -283,65 +292,65 @@ export default function FinanceOverview() {
                         <div className="space-y-4">
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-black rounded-full"></div> Cash on
-                                    Hand
+                                    <div className="w-3 h-3 bg-black rounded-full"></div>
+                                    Cash on Hand
                                 </span>
-                                <span className="font-medium">
+                                <span className="font-medium text-gray-900">
                                     {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(summary.cash_on_hand)}
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>{" "}
+                                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
                                     Expected Revenue
                                 </span>
-                                <span className="font-medium">
+                                <span className="font-medium text-gray-900">
                                     {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalReceivable)}
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-gray-500 flex items-center gap-2">
-                                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>{" "}
+                                    <div className="w-3 h-3 bg-red-400 rounded-full"></div>
                                     Upcoming Bills
                                 </span>
-                                <span className="font-medium">
-                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable) || "RM 0.00"}
+                                <span className="font-medium text-gray-900">
+                                    {new Intl.NumberFormat("en-US", { style: "currency", currency: summary.base_currency }).format(totalPayable)}
                                 </span>
                             </div>
 
-                            {/* Simple Bar Chart */}
-                            <div className="h-4 w-full flex rounded-full overflow-hidden mt-6 bg-gray-100">
+                            {/* Progress Bar */}
+                            <div className="h-5 w-full flex rounded-full overflow-hidden mt-6 bg-gray-100">
                                 {cashPercent > 0 && (
                                     <div
                                         style={{ width: `${cashPercent}%` }}
-                                        className="bg-black"
-                                        title="Cash"
+                                        className="bg-black transition-all duration-500"
+                                        title={`Cash: ${cashPercent.toFixed(1)}%`}
                                     ></div>
                                 )}
                                 {receivablePercent > 0 && (
                                     <div
                                         style={{ width: `${receivablePercent}%` }}
-                                        className="bg-gray-300"
-                                        title="Receivables"
+                                        className="bg-gray-300 transition-all duration-500"
+                                        title={`Receivables: ${receivablePercent.toFixed(1)}%`}
                                     ></div>
                                 )}
                                 {payablePercent > 0 && (
                                     <div
                                         style={{ width: `${payablePercent}%` }}
-                                        className="bg-red-400"
-                                        title="Payables"
+                                        className="bg-red-400 transition-all duration-500"
+                                        title={`Payables: ${payablePercent.toFixed(1)}%`}
                                     ></div>
                                 )}
                             </div>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="card p-0 overflow-hidden">
-                            <div className="p-4 border-b bg-gray-50/50">
+                    <div className="flex flex-col sm:flex-row gap-6">
+                        <div className="flex-1 bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
                                 <h3 className="font-medium text-sm flex items-center justify-between">
                                     Active E-Invoices (Customer)
-                                    <span className="text-xs text-gray-400 font-normal">Issuing</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-semibold tracking-wide uppercase">Issuing</span>
                                 </h3>
                             </div>
                             <div className="p-4">
@@ -352,11 +361,11 @@ export default function FinanceOverview() {
                                 />
                             </div>
                         </div>
-                        <div className="card p-0 overflow-hidden">
-                            <div className="p-4 border-b bg-gray-50/50">
+                        <div className="flex-1 bg-white ring-1 ring-gray-900/5 shadow-sm rounded-xl overflow-hidden">
+                            <div className="px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
                                 <h3 className="font-medium text-sm flex items-center justify-between">
                                     Supplier Bills
-                                    <span className="text-xs text-gray-400 font-normal">Receiving</span>
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-semibold tracking-wide uppercase">Receiving</span>
                                 </h3>
                             </div>
                             <div className="p-4">
@@ -371,7 +380,8 @@ export default function FinanceOverview() {
                     </div>
                 </div>
 
-                <div className="space-y-6">
+                {/* Sidebar Pane */}
+                <div className="lg:col-span-4 space-y-6 sticky top-6">
                     <QuickActions />
                 </div>
             </div>

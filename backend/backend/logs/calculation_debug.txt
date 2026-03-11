@@ -1,63 +1,41 @@
 ================================================================================
-   DETAILED CALCULATION TRACE: 2026-03-10 14:30:18.983072
+   DETAILED CALCULATION TRACE: 2026-03-11 17:50:47.345559
 ================================================================================
 
 STEP 1: SUPABASE DATA RETRIEVAL
 --------------------------------------------------------------------------------
-Requested table: 'invoices' | Total records found: 17
-Requested table: 'payments' | Total records found: 2
-Requested table: 'staff'    | Total employees found: 3
+Requested table: 'invoices' | Total records found: 1
+Requested table: 'payments' | Total records found: 0
+Requested table: 'staff'    | Total employees found: 0
 TTM Filtering range: Records on or after 2025-04-01
-TTM Invoices filtered: 16
+TTM Invoices filtered: 1
 
 STEP 2: ANNUAL REVENUE & AVG MONTHLY INCOME (TRAILING 12 MONTHS)
 --------------------------------------------------------------------------------
 Rule: Customer invoices identified by 'M' prefix in invoice number.
-Number of Customer Invoices (TTM): 10
-Calculated TTM Revenue Sum: RM 352,800.00
-Divisor (Monthly Period): 12 months (calculated from start date to latest invoice)
-Average Monthly Income (Revenue): RM 29,400.00 (Formula: 352,800.00 / 12)
-Annualized Revenue: RM 352,800.00
+Number of Customer Invoices (TTM): 0
+Calculated TTM Revenue Sum: RM 0.00
+Divisor (Monthly Period): 1 months (calculated from start date to latest invoice)
+Average Monthly Income (Revenue): RM 0.00 (Formula: 0.00 / 1)
+Annualized Revenue: RM 0.00
 
 STEP 3: PAYROLL CONTRIBUTION & MONTHLY EXPENSES
 --------------------------------------------------------------------------------
 Individual Staff Breakdown (from Supabase 'staff' table):
-  1. Raj Kumar:
-     - Gross Salary: RM 6,000.00
-     - EPF Contribution: RM 764.79
-     - SOCSO Contribution: RM 102.95
-     - EIS Contribution: RM 11.80
-     - Monthly Tax (PCB): RM 195.00
-     - Resulting Net Pay: RM 4,925.46
-  2. Siti Aminah binti Rashid:
-     - Gross Salary: RM 5,000.00
-     - EPF Contribution: RM 1,000.00
-     - SOCSO Contribution: RM 233.05
-     - EIS Contribution: RM 11.80
-     - Monthly Tax (PCB): RM 200.00
-     - Resulting Net Pay: RM 3,555.15
-  3. Alex Wong Kah Leong:
-     - Gross Salary: RM 4,000.00
-     - EPF Contribution: RM 1,000.00
-     - SOCSO Contribution: RM 100.00
-     - EIS Contribution: RM 11.80
-     - Monthly Tax (PCB): RM 200.00
-     - Resulting Net Pay: RM 2,688.20
 
 STEP 4: NET PROFIT & TAX CALCULATION (ARITHMETIC BREAKDOWN)
 --------------------------------------------------------------------------------
-1. Monthly Revenue: RM 352,800.00 (Annual) / 12 = RM 29,400.00 /mo
+1. Monthly Revenue: RM 0.00 (Annual) / 1 = RM 0.00 /mo
 2. Total Yearly Costs:
-   Supplier Expenses (TTM): RM 57,950.00
-   Payroll (Annualized): RM 180,000.00 (15,000.00 * 12)
-   Total Costs: RM 237,950.00
+   Supplier Expenses (TTM): RM 67.70
+   Payroll (Annualized): RM 0.00 (0.00 * 12)
+   Total Costs: RM 67.70
 3. Monthly Net Profit:
-   (RM 352,800.00 - RM 237,950.00) / 12 = RM 9,570.83
+   (RM 0.00 - RM 67.70) / 12 = RM -67.70
 4. Corporate Tax Calculation (Tiered):
-   Annual Active Profit: RM 114,850.00
-   - First 150k @ 15%: RM 17,227.50
-   Total Annual Tax: RM 17,227.50
-   Monthly Tax Est: RM 1,435.62 (RM 17,227.50 / 12)
+   Annual Active Profit: RM 0.00
+   Total Annual Tax: RM 0.00
+   Monthly Tax Est: RM 0.00 (RM 0.00 / 12)
 
 STEP 5: READINESS FACTORS (DETAILED STEP-BY-STEP ARITHMETIC)
 --------------------------------------------------------------------------------
@@ -65,35 +43,35 @@ The Loan Score is calculated using weighted scores of 6 key factors:
 
 1. Revenue Consistency (Weight: 15%)
    - Based on Coefficient of Variation (CV) of 12 monthly periods.
-   - Raw Consistency Value: 51.45%
-   - Contribution to Total Score: 7.72pts
+   - Raw Consistency Value: 100.00%
+   - Contribution to Total Score: 15.00pts
 
 2. Collection Efficiency (Weight: 10%)
-   - Formula: (6 Paid Invoices / 10 Total Invoices) * 100
-   - Efficiency Value: 60.00%
-   - Contribution to Total Score: 6.00pts
+   - Formula: (0 Paid Invoices / 1 Total Invoices) * 100
+   - Efficiency Value: 0.00%
+   - Contribution to Total Score: 0.00pts
 
 3. Cash Flow Coverage (Weight: 30%)
    - Benchmarked against Proposed Monthly Repayment: RM 25,000.00
-   - Ratio: RM 9,570.83 (Net) / RM 25,000.00 (Loan)
-   - Coverage Score (Capped 100%): 38.28%
-   - Contribution to Total Score: 11.48pts
+   - Ratio: RM -67.70 (Net) / RM 25,000.00 (Loan)
+   - Coverage Score (Capped 100%): 0.00%
+   - Contribution to Total Score: 0.00pts
 
 4. Debt-to-Income / DTI Score (Weight: 20%)
    - Existing Monthly Debt Load: RM 5,000.00
-   - DTI Percentage: (5,000 / 9,570.83) * 100 = 52.24%
-   - Resulting DTI Score (100 - DTI): 47.76%
-   - Contribution to Total Score: 9.55pts
+   - DTI Percentage: (5,000 / 1.00) * 100 = 100.00%
+   - Resulting DTI Score (100 - DTI): 0.00%
+   - Contribution to Total Score: 0.00pts
 
 5. Asset Strength (Weight: 15%)
    - Liquidity Calculation:
-     Cash On Hand (Paid Invoices): RM 315,500.00
+     Cash On Hand (Paid Invoices): RM 0.00
      (Based on Sum of Paid Customer Invoices minus Paid Supplier Invoices)
-     + 80% Receivables: RM 82,300.00 * 0.8 = RM 65,840.00
-     - Current Liabilities: RM 57,950.00
-   - Total Net Assets: RM 323,390.00
-   - Asset Score (Relative to RM 200k target): 100.00%
-   - Contribution to Total Score: 15.00pts
+     + 80% Receivables: RM 0.00 * 0.8 = RM 0.00
+     - Current Liabilities: RM 67.70
+   - Total Net Assets: RM 0.00
+   - Asset Score (Relative to RM 200k target): 0.00%
+   - Contribution to Total Score: 0.00pts
 
 6. Compliance Health (Weight: 10%)
    - Status verified from SSM/LHDN records.
@@ -101,5 +79,5 @@ The Loan Score is calculated using weighted scores of 6 key factors:
    - Contribution to Total Score: 10.00pts
 
 --------------------------------------------------------------------------------
-FINAL WEIGHTED READINESS SCORE: 59.75%
+FINAL WEIGHTED READINESS SCORE: 25.00%
 ================================================================================

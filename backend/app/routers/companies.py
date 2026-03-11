@@ -11,6 +11,7 @@ from app.models import CompanyCreate, FinancialSummaryOut
 from app.invoice_service import (
     create_company,
     get_company,
+    get_company_with_fallback,
     update_company,
     get_financial_summary,
 )
@@ -19,9 +20,9 @@ router = APIRouter(prefix="/api/companies", tags=["companies"])
 
 
 @router.get("/me")
-def get_my_company(claims: dict[str, Any] = Depends(require_auth)):
+async def get_my_company(claims: dict[str, Any] = Depends(require_auth)):
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         return {"company": None}
     return {"company": company}
@@ -54,9 +55,9 @@ def update_my_company(
 
 
 @router.get("/financial-summary", response_model=FinancialSummaryOut)
-def get_company_financial_summary(claims: dict[str, Any] = Depends(require_auth)):
+async def get_company_financial_summary(claims: dict[str, Any] = Depends(require_auth)):
     user_id = claims.get("sub", "")
-    company = get_company(user_id)
+    company = await get_company_with_fallback(user_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found.")
 
