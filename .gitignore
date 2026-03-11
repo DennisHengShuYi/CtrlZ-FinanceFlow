@@ -1,26 +1,55 @@
-# Node & Build
+# ── Node & Build ──
 node_modules/
 dist/
 dist-ssr/
-*.log
 
-# Python
+# ── Python ──
 __pycache__/
 *.pyc
 *.pyo
 venv/
 .venv/
+testvenv/
 *.egg-info/
 
-# Environment (Root Only)
+# ── Environment (NEVER commit secrets) ──
 .env
 .env.*
 !.env.example
 
-# OS & Editors
+# ── Logs & Debug Output ──
+*.log
+*.log.*
+logs/
+pip_log.txt
+pip_out.log
+pip.log
+ps_out.txt
+backend_error.log
+venv_out.log
+which_python.log
+startup.log
+
+# ── Temp / Generated / Debug Files ──
+api_output*.json
+all_files.txt
+files.txt
+dummy.jpg
+requirements.clean.txt
+
+# ── Frontend Build Artifacts ──
+frontend/dist/
+tsc-error*.txt
+npm_install_log.txt
+
+# ── OS & IDE ──
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Cross-Project
-frontend/dist/
+# ── Claude / AI Agent Artifacts ──
+.claude/
