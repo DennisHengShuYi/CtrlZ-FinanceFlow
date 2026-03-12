@@ -35,10 +35,12 @@ def generate_report():
     
     # Filter TTM
     ttm_invoices = [i for i in invoices if i['date'] >= TTM_START]
-    is_m = lambda x: (x.get('invoice_number') or '').strip().upper().startswith('M')
+    def is_issuing(i):   
+        num = (i.get('invoice_number') or '').strip().upper()
+        return num.startswith('M') or num.startswith('INV')
     
-    issuing = [i for i in ttm_invoices if is_m(i)]
-    receiving = [i for i in ttm_invoices if not is_m(i)]
+    issuing = [i for i in ttm_invoices if is_issuing(i)]
+    receiving = [i for i in ttm_invoices if not is_issuing(i)]
     
     total_revenue = sum(i['total_amount'] for i in issuing)
     monthly_avg_revenue = total_revenue / 12

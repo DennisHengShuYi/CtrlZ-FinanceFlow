@@ -1,22 +1,18 @@
 import os
 from typing import List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime
 
 from app.supabase_client import supabase
-from app.auth import require_auth
-from app.invoice_service import get_company, get_company_with_fallback
+from app.ai_service import extract_product_details_from_caption
 
 env_path = Path(__file__).parent.parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 router = APIRouter(prefix="/api/products", tags=["products"])
-
-# Static seed data (your mock products) - removed seeding to prevent resetting company_id
-# If you want to use it, you'd need to associate with a specific company_id now.
 
 # --- Pydantic models ---
 class ProductBase(BaseModel):
@@ -57,10 +53,6 @@ class TopProduct(Product):
 class MostEnquired(BaseModel):
     name: str
     inquiries: int
-
-
-# We use the centralized version in app.invoice_service
-_resolve_company = get_company_with_fallback
 
 
 # --- Helper: compute scores (same logic as before, using DB product names) ---
@@ -126,32 +118,36 @@ def compute_product_scores(products):
     return product_scores, product_inquiries
 
 
-# --- Endpoints ---
-
-@router.get("", response_model=List[Product])
-async def get_products(claims: dict[str, Any] = Depends(require_auth)):
-    """Return all products for the current user's company."""
+# --- Helper to fetch Instagram posts (optionally filtered by company) ---
+async def get_all_instagram_posts_for_company(company_id: str):
     if not supabase:
         return []
-    user_id = claims.get("sub", "")
-    company = await _resolve_company(user_id)
-    if not company:
+    try:
+        # If you have a company_id column in instagram_posts, filter by it.
+        # For now, return all posts.
+        resp = supabase.table("instagram_posts").select("*").execute()
+        return resp.data
+    except Exception as e:
+        print(f"Error fetching posts: {e}")
         return []
-    
-    resp = supabase.table("products").select("*").eq("company_id", company["id"]).execute()
+
+
+# --- Endpoints (auth removed, no company filtering) ---
+
+@router.get("", response_model=List[Product])
+async def get_products():
+    """Return all products (no authentication, all companies)."""
+    if not supabase:
+        return []
+    resp = supabase.table("products").select("*").execute()
     return [Product(**p) for p in resp.data]
 
 @router.get("/top", response_model=List[TopProduct])
-async def get_top_products(limit: int = 5, claims: dict[str, Any] = Depends(require_auth)):
-    """Return top products by weighted score, including inventory and inquiry count."""
+async def get_top_products(limit: int = 5):
+    """Return top products by weighted score across all companies."""
     if not supabase:
         return []
-    user_id = claims.get("sub", "")
-    company = await _resolve_company(user_id)
-    if not company:
-        return []
-
-    resp = supabase.table("products").select("*").eq("company_id", company["id"]).execute()
+    resp = supabase.table("products").select("*").execute()
     products = resp.data
     if not products:
         return []
@@ -168,16 +164,11 @@ async def get_top_products(limit: int = 5, claims: dict[str, Any] = Depends(requ
     return result[:limit]
 
 @router.get("/most-enquired", response_model=MostEnquired)
-async def get_most_enquired_product(claims: dict[str, Any] = Depends(require_auth)):
-    """Return the product with the highest WhatsApp inquiry count."""
+async def get_most_enquired_product():
+    """Return the product with the highest WhatsApp inquiry count across all companies."""
     if not supabase:
-         return {"name": "None", "inquiries": 0}
-    user_id = claims.get("sub", "")
-    company = await _resolve_company(user_id)
-    if not company:
         return {"name": "None", "inquiries": 0}
-
-    resp = supabase.table("products").select("*").eq("company_id", company["id"]).execute()
+    resp = supabase.table("products").select("*").execute()
     products = resp.data
     _, inquiries = compute_product_scores(products)
     if not inquiries:
@@ -186,18 +177,18 @@ async def get_most_enquired_product(claims: dict[str, Any] = Depends(require_aut
     return {"name": max_name, "inquiries": inquiries[max_name]}
 
 @router.post("", response_model=Product)
-async def create_product(product: ProductCreate, claims: dict[str, Any] = Depends(require_auth)):
+async def create_product(product: ProductCreate):
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
     
-    user_id = claims.get("sub", "")
-    company = await _resolve_company(user_id)
-    if not company:
-        raise HTTPException(status_code=400, detail="Company not found")
-
+    # Since auth is removed, we need a company_id. For testing, you can either:
+    # 1. Accept company_id in the request body (it's optional in ProductCreate)
+    # 2. Hardcode a default company ID
+    # We'll require company_id in the request for now.
     payload = product.dict(exclude_none=True)
-    payload["company_id"] = company["id"]
-
+    if "company_id" not in payload:
+        raise HTTPException(status_code=400, detail="company_id is required")
+    
     try:
         resp = supabase.table("products").insert(payload).execute()
         return Product(**resp.data[0])
@@ -205,19 +196,16 @@ async def create_product(product: ProductCreate, claims: dict[str, Any] = Depend
         print(f"Create err: {e}")
         raise HTTPException(status_code=500, detail="Failed to create product")
 
-
 @router.patch("/{product_id}", response_model=Product)
-async def update_product(product_id: str, updates: ProductUpdate, claims: dict[str, Any] = Depends(require_auth)):
+async def update_product(product_id: str, updates: ProductUpdate):
     """Update inventory, threshold, price, etc. of a product."""
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
 
-    # Build update dict, excluding None values
     update_data = {k: v for k, v in updates.dict().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    # Add updated_at timestamp
     update_data["updated_at"] = datetime.utcnow().isoformat()
 
     try:
@@ -230,7 +218,7 @@ async def update_product(product_id: str, updates: ProductUpdate, claims: dict[s
         raise HTTPException(status_code=500, detail="Failed to update product")
 
 @router.delete("/{product_id}")
-async def delete_product(product_id: str, claims: dict[str, Any] = Depends(require_auth)):
+async def delete_product(product_id: str):
     if not supabase:
         raise HTTPException(status_code=503, detail="Database not available")
     try:
@@ -239,3 +227,41 @@ async def delete_product(product_id: str, claims: dict[str, Any] = Depends(requi
     except Exception as e:
         print(f"Delete err: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete product")
+
+@router.post("/sync-from-instagram")
+async def sync_products_from_instagram():
+    """
+    Fetch all Instagram posts, extract product details, and update the products table.
+    This version does not filter by company; updates all products.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Database not available")
+
+    # Get all products (across all companies)
+    products_resp = supabase.table("products").select("id, name, details").execute()
+    products = products_resp.data
+    if not products:
+        return {"message": "No products found in any company."}
+
+    # Get all Instagram posts
+    posts_resp = supabase.table("instagram_posts").select("*").execute()
+    posts = posts_resp.data
+    if not posts:
+        return {"message": "No Instagram posts found."}
+
+    updated_count = 0
+    for post in posts:
+        caption = post.get("caption", "")
+        if not caption:
+            continue
+        for prod in products:
+            if prod["name"].lower() in caption.lower():
+                details = await extract_product_details_from_caption(caption, prod["name"])
+                if details:
+                    current = supabase.table("products").select("details").eq("id", prod["id"]).execute()
+                    current_details = current.data[0].get("details", {}) if current.data else {}
+                    merged = {**current_details, **details}
+                    supabase.table("products").update({"details": merged}).eq("id", prod["id"]).execute()
+                    updated_count += 1
+
+    return {"message": f"Sync complete. Updated {updated_count} products."}

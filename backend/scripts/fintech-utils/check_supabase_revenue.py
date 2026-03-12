@@ -28,7 +28,7 @@ with open("audit_report.txt", "w", encoding="utf-8") as f:
         num = inv.get('invoice_number', '') or ''
         amount = inv.get('total_amount', 0)
         date = inv.get('date', '')
-        is_m = num.strip().upper().startswith('M')
+        is_m = num.strip().upper().startswith('M') or num.strip().upper().startswith('INV')
         is_in_ttm = date >= ttm_start_date
         
         if is_m and is_in_ttm:

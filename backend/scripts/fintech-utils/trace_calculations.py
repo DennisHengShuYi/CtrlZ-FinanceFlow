@@ -29,7 +29,9 @@ def calculate_pcb(monthly_salary):
     return round(tax / 12, 2)
 
 def _inv_num(i): return (i.get('invoice_number') or '').strip()
-def is_issuing(i):   return _inv_num(i).upper().startswith('M')
+def is_issuing(i):   
+    num = _inv_num(i).upper()
+    return num.startswith('M') or num.startswith('INV')
 def is_receiving(i): return not is_issuing(i)
 
 print("=" * 70)
@@ -52,7 +54,7 @@ monthly_rev = total_rev / divisor
 print(f"\n{SEP}")
 print("  A. REVENUE (TTM)")
 print(SEP)
-print(f"  Invoices starting with 'M' dated >= {TTM_START}:")
+print(f"  Invoices starting with 'M' or 'INV' dated >= {TTM_START}:")
 for i in issuing_ttm:
     print(f"    [{i['date']}] {i['invoice_number']:20s}  RM {i['total_amount']:>10,.2f}  ({i['status']})")
 print(f"\n  Total TTM Revenue        = RM {total_rev:>10,.2f}")

@@ -8,12 +8,13 @@ import json
 import uuid
 from datetime import date as date_type, datetime
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, UploadFile, HTTPException
 
 from app.auth import require_auth
 from app.models import WhatsAppMessage
+from app.ai_service import classify_intent
 from app.ai_service import extract_invoice_data, generate_rejection_message
 from app.currency_service import fetch_exchange_rate
 from app.invoice_service import (
@@ -45,6 +46,34 @@ COUNTRY_CURRENCY_MAP = {
     "IN": "INR", "AE": "AED", "SA": "SAR", "BN": "BND",
     "KH": "KHR", "LA": "LAK", "MM": "MMK",
 }
+
+
+def get_conversation_history(session_id: str, limit: int = 10) -> List[dict]:
+    """Retrieve last messages from whatsapp_messages for a session."""
+    try:
+        response = supabase.table("whatsapp_messages") \
+            .select("role, content, intent, mood") \
+            .eq("session_id", session_id) \
+            .order("created_at", desc=False) \
+            .limit(limit) \
+            .execute()
+        return response.data
+    except Exception as e:
+        print(f"Failed to fetch history: {e}")
+        return []
+
+def store_message(session_id: str, role: str, content: str, intent: str = None, mood: str = None):
+    """Store a message in whatsapp_messages."""
+    try:
+        supabase.table("whatsapp_messages").insert({
+            "session_id": session_id,
+            "role": role,
+            "content": content,
+            "intent": intent,
+            "mood": mood
+        }).execute()
+    except Exception as e:
+        print(f"Failed to store message: {e}")
 
 
 def _generate_invoice_number() -> str:
@@ -404,8 +433,40 @@ async def whatsapp_webhook(
     base_currency = company.get("base_currency", "MYR")
     agent_steps = []
 
+ # ================= CONVERSATIONAL LAYER =================
+    session_id = body.phone_number  # Use sender's phone as session ID
+
+    # Fetch conversation history
+    history = get_conversation_history(session_id)
+
+    # Classify intent using AI (or fallback)
+    classification = await classify_intent(body.message, history, company_id=company_id)
+    intent = classification["intent"]
+    mood = classification["mood"]
+    reply = classification["reply"]
+
+    # Store user message
+    store_message(session_id, "user", body.message, intent, mood)
+
+    # If intent is NOT order/payment, respond conversationally and stop
+    if intent not in ("order", "payment"):
+        # Store assistant reply
+        store_message(session_id, "assistant", reply)
+        return {
+            "status": "conversation",
+            "intent": intent,
+            "mood": mood,
+            "reply": reply,
+            "agent_steps": agent_steps,
+        }
+
+    # For order/payment, proceed with invoice flow.
+    agent_steps.append(f"Intent '{intent}' detected – creating invoice.")
+    store_message(session_id, "assistant", f"Intent '{intent}' confirmed. Creating invoice...")
+
+
     # ── Step 0: AI Extraction ──
-    result = await extract_invoice_data(body.message)
+    result = await extract_invoice_data(body.message, history=history)
 
     if result.get("status") == "error":
         return {

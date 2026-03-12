@@ -685,11 +685,19 @@ def process_payment_verification(company_id: str, payment_data: dict) -> dict:
 
 @with_retry()
 def get_financial_summary(company_id: str) -> dict:
-    clients = get_clients(company_id)
+    # 1. Fetch ALL invoices for this company to calculate paid totals
+    invoices_res = (
+        supabase.table("invoices")
+        .select("*, clients!inner(type, company_id, name)")
+        .eq("clients.company_id", company_id)
+        .execute()
+    )
+    all_invoices = invoices_res.data or []
+    
     company_res = supabase.table("user_companies").select("base_currency").eq("id", company_id).execute()
     base_currency = company_res.data[0].get("base_currency", "MYR") if company_res.data else "MYR"
 
-    if not clients:
+    if not all_invoices:
         return {
             "cash_on_hand": "0",
             "total_assets": "0",
@@ -699,47 +707,48 @@ def get_financial_summary(company_id: str) -> dict:
             "supplier_pending": [],
         }
 
-    # Fetch all payments related to this company through clients
-    payments_res = (
-        supabase.table("payments")
-        .select("*, clients!inner(type, company_id, name)")
-        .eq("clients.company_id", company_id)
-        .execute()
-    )
-    payments = payments_res.data or []
+    # Helper to identify customer vs supplier based on prefix (M/INV) or column
+    def is_customer(inv):
+        num = (inv.get('invoice_number') or '').strip().upper()
+        if num.startswith('M') or num.startswith('INV'):
+            return True
+        return inv.get('type') == 'issuing'
 
-    cash_in = sum(
-        (Decimal(str(p["amount"])) * Decimal(str(p.get("exchange_rate", 1.0))))
-        for p in payments if p["clients"]["type"] in ("customer", None)
+    # Paid Totals
+    paid_customer_invoices_sum = sum(
+        Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0)))
+        for inv in all_invoices if is_customer(inv) and inv.get("status") == "paid"
     )
-    cash_out = sum(
-        (Decimal(str(p["amount"])) * Decimal(str(p.get("exchange_rate", 1.0))))
-        for p in payments if p["clients"]["type"] == "supplier"
+    paid_supplier_expenses_sum = sum(
+        Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0)))
+        for inv in all_invoices if not is_customer(inv) and inv.get("status") == "paid"
     )
-    cash_on_hand = cash_in - cash_out
 
-    # Fetch all invoices related to this company through clients
-    invoices_res = (
-        supabase.table("invoices")
-        .select("*, clients!inner(type, company_id, name)")
-        .eq("clients.company_id", company_id)
-        .in_("status", ["unpaid", "partially_paid"])
-        .execute()
-    )
-    invoices = invoices_res.data or []
+    # Cash on Hand = Paid Customer Invoices - Paid Supplier Expenses
+    cash_on_hand = paid_customer_invoices_sum - paid_supplier_expenses_sum
 
+    # Pending (Unpaid/Partially Paid)
     client_pending = [
-        inv for inv in invoices if inv.get("type", "issuing") == "issuing"
+        inv for inv in all_invoices if is_customer(inv) and inv.get("status") != "paid"
     ]
     supplier_pending = [
-        inv for inv in invoices if inv.get("type", "issuing") == "receiving"
+        inv for inv in all_invoices if not is_customer(inv) and inv.get("status") != "paid"
     ]
 
-    accounts_receivable = sum(Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0))) for inv in client_pending)
-    accounts_payable = sum(Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0))) for inv in supplier_pending)
+    total_unpaid_customer = sum(
+        Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0)))
+        for inv in client_pending
+    )
+    total_unpaid_supplier = sum(
+        Decimal(str(inv.get("total_amount", 0))) * Decimal(str(inv.get("exchange_rate", 1.0)))
+        for inv in supplier_pending
+    )
 
-    total_assets = cash_on_hand + accounts_receivable
-    available_for_expenses = cash_on_hand - accounts_payable
+    # Total Asset = Cash on Hand + Unpaid Customer Invoice
+    total_assets = cash_on_hand + total_unpaid_customer
+
+    # Upcoming Bills deduction for "available"
+    available_for_expenses = cash_on_hand - total_unpaid_supplier
 
     return {
         "cash_on_hand": str(cash_on_hand),

@@ -71,25 +71,34 @@ class PostEngagement(BaseModel):
     top_products: List[str]
     engagement_score: int
 
-# --- Sample data for seeding (only used if tables are empty) ---
+# --- Sample data for seeding (updated for monitor, keyboard, mouse) ---
 SAMPLE_POSTS = [
     {
         "id": "post1",
-        "caption": "New curry puffs! Try our spicy variant 🔥",
-        "likes_count": 120,
+        "caption": "🔥 27-inch 4K Monitor – RM150 only! Crystal clear display, perfect for work and gaming. Limited stock!",
+        "likes_count": 45,
         "comments": [
-            {"id": "c1", "username": "user1", "text": "Looks delicious!"},
-            {"id": "c2", "username": "user2", "text": "How much for 50 boxes?"},
-            {"id": "c3", "username": "user3", "text": "Expensive la 😕"},
+            {"id": "c1", "username": "tech_guru", "text": "Is this IPS panel?"},
+            {"id": "c2", "username": "gamer_99", "text": "144Hz?"},
+            {"id": "c3", "username": "student_ali", "text": "Can I use it with my MacBook?"},
         ]
     },
     {
         "id": "post2",
-        "caption": "Roti canai frozen – just heat and eat!",
-        "likes_count": 85,
+        "caption": "⌨️ Mechanical Keyboard – RM130. RGB, blue switches, durable build. Great for typing and gaming!",
+        "likes_count": 32,
         "comments": [
-            {"id": "c4", "username": "user4", "text": "Where to buy?"},
-            {"id": "c5", "username": "user5", "text": "Sedap! I want 10 packs"},
+            {"id": "c4", "username": "keyboard_lover", "text": "Wireless or wired?"},
+            {"id": "c5", "username": "office_worker", "text": "Do you have red switches?"},
+        ]
+    },
+    {
+        "id": "post3",
+        "caption": "🖱️ Wireless Mouse – RM30. Ergonomic design, 1600 DPI, silent clicks. Available in black and white!",
+        "likes_count": 28,
+        "comments": [
+            {"id": "c6", "username": "minimalist", "text": "Battery life?"},
+            {"id": "c7", "username": "student_amy", "text": "Can I get it in pink?"},
         ]
     }
 ]
@@ -173,14 +182,14 @@ def analyze_comment_with_gemini(comment_text: str, post_caption: str) -> dict:
     prompt = f"""
 {product_info}
 
-Analyze this Instagram comment on a food business post.
+Analyze this Instagram comment on an electronics business post selling monitors, keyboards, and mice.
 Post caption: "{post_caption}"
 Comment: "{comment_text}"
 
 Return JSON with:
 - sentiment: one of "positive", "neutral", "negative"
 - suggested_reply: a friendly, appropriate reply (if negative, apologetic and helpful; if positive, thank them; if neutral, offer more info)
-- product_mentioned: any product name mentioned (or null)
+- product_mentioned: any product name mentioned (e.g., monitor, keyboard, mouse) or null
 
 Reply ONLY with JSON, no other text.
 """
@@ -291,9 +300,8 @@ async def get_engagement():
         posts_resp = supabase.table("instagram_posts").select("*").execute()
         posts_data = posts_resp.data or []
 
-        # Predefine product names (you could fetch from products table if exists)
-        # For simplicity, we'll use a static list; but ideally you'd fetch from products DB.
-        product_names = ["curry puff", "roti canai", "onde-onde", "spicy curry puff", "kaya puff"]
+        # Product names for detection (update to your new products)
+        product_names = ["monitor", "keyboard", "mouse"]
 
         results = []
         for p in posts_data:

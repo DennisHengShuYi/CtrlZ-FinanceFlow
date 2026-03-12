@@ -11,6 +11,8 @@ from google import genai
 from google.genai import types
 from app.config import ROOT_DIR
 from dotenv import load_dotenv
+from typing import Optional, List
+from app.supabase_client import supabase
 
 load_dotenv(ROOT_DIR / ".env")
 
@@ -19,6 +21,41 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 # Initialize the Gen AI Client
 client = genai.Client(api_key=GEMINI_API_KEY)
 
+def get_company_products(company_id: str) -> List[dict]:
+    """Fetch products for a given company, including details."""
+    if not supabase:
+        return []
+    try:
+        resp = supabase.table("products") \
+            .select("name, price, inventory, unit, currency, details") \
+            .eq("company_id", company_id) \
+            .execute()
+        return resp.data
+    except Exception as e:
+        print(f"Error fetching products: {e}")
+        return []
+
+def get_instagram_product_context() -> str:
+    """
+    Fetch recent Instagram post captions and format them as additional product context.
+    """
+    if not supabase:
+        return ""
+    try:
+        # Fetch latest 10 posts (adjust limit as needed)
+        resp = supabase.table("instagram_posts") \
+            .select("caption") \
+            .order("created_at", desc=True) \
+            .limit(10) \
+            .execute()
+        posts = resp.data
+        if not posts:
+            return ""
+        captions = "\n".join([f"- {p['caption']}" for p in posts])
+        return f"Product descriptions from our Instagram posts (for reference):\n{captions}\n\n"
+    except Exception as e:
+        print(f"Error fetching Instagram posts: {e}")
+        return ""
 
 def _extract_json(text: str) -> dict:
     """
@@ -127,14 +164,26 @@ def _validate_line_items(data: dict) -> dict:
     return data
 
 
-async def extract_invoice_data(message: str) -> dict:
+async def extract_invoice_data(message: str, history: Optional[List[dict]] = None) -> dict:
     """
-    Send a WhatsApp message to Gemini and extract structured invoice data.
+    Send a WhatsApp message (and optional conversation history) to Gemini
+    and extract structured invoice data.
     """
+    # Build conversation history string if provided
+    history_str = ""
+    if history:
+        for msg in history:
+            role = "Customer" if msg["role"] == "user" else "Assistant"
+            history_str += f"{role}: {msg['content']}\n"
+        history_str = "Here is the conversation so far:\n" + history_str + "\nNow the customer says:\n"
+
+    full_prompt = history_str + message
+
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=message,
+            contents=full_prompt,
+            #contents=message,
             config=types.GenerateContentConfig(
                 system_instruction=get_system_prompt(),
                 temperature=0.1,
@@ -149,7 +198,6 @@ async def extract_invoice_data(message: str) -> dict:
             "data": {"client_name": None, "date": None, "month": None, "items": []},
             "questions": [f"Sorry, I couldn't process your message. Error: {str(e)}"],
         }
-
 
 async def extract_receipt_data(image_bytes: bytes, mime_type: str) -> dict:
     """
@@ -376,3 +424,151 @@ No markdown.
     except Exception as e:
         print(f"Error evaluating bill: {e}")
         return {"decision": "defer", "reason": "Failed to invoke AI evaluation.", "negotiation_message": None}
+
+async def classify_intent(message: str, history: list, company_id: Optional[str] = None) -> dict:
+    """
+    Classify intent: 'interest', 'order', 'payment'. Also returns mood and reply.
+    If company_id provided, includes product information for accurate answers.
+    Also includes Instagram post captions as additional context.
+    """
+    # Build product info string – only exact names and prices, no stock
+    product_info = ""
+    if company_id:
+        products = get_company_products(company_id)
+        if products:
+            product_lines = []
+            for p in products:
+                base = f"- {p['name']}: {p['price']} {p['currency']}"
+                if p.get('details'):
+                    # Format details nicely
+                    details_str = ", ".join([f"{k}: {v}" for k, v in p['details'].items() if v])
+                    base += f" ({details_str})"
+                product_lines.append(base)
+            product_list = "\n".join(product_lines)
+            product_info = f"Available products (use these exact names when referring to them):\n{product_list}\n\n"
+    # Add Instagram post context (still useful for rich descriptions)
+    instagram_context = get_instagram_product_context()
+    if instagram_context:
+        product_info += instagram_context
+
+    # Build conversation history string
+    history_str = ""
+    for msg in history:
+        role = "Customer" if msg["role"] == "user" else "Assistant"
+        history_str += f"{role}: {msg['content']}\n"
+
+    prompt = f"""{product_info}You are a helpful, friendly sales assistant for a trading company. Your goal is to answer questions about our products and help customers place orders.
+
+**ABSOLUTE RULES (YOU MUST FOLLOW THEM EXACTLY):**
+
+1. **Product Names:** Always use the exact product name from the "Available products" list. Do not add extra descriptors like "wireless", "mechanical", etc., unless the customer explicitly mentions them. For example, if the list says "Mouse", call it "Mouse" – not "wireless mouse".
+
+2. **Using Instagram Descriptions:** The section "Product descriptions from our Instagram posts" contains additional details about each product (e.g., screen size, switch type, battery life). **You MUST use this information to answer customer questions about those features.** For example, if a customer asks about the monitor size, look in the Instagram descriptions for "27-inch" and provide that answer.
+
+3. **Stay on Topic:** If the customer is asking about a specific product (e.g., "keyboard"), only discuss that product. Never mention any other product (like "mouse") unless the customer explicitly asks about it. If the message is ambiguous (e.g., "how much is it?"), ask: "Which product are you asking about?"
+
+4. **Discounts:** We do NOT offer any discounts – ever. If the customer asks about discounts, bulk discounts, or any price reduction, you must respond: "We currently do not offer discounts on any products." Do not say "we can discuss discounts" or anything similar. Absolutely no negotiation.
+
+5. **Inventory:** Do NOT reveal exact stock numbers. If the customer asks "how many do you have?" or "what's the stock level?", respond: "I'll check that for you." Otherwise, just confirm availability with: "Yes, we have that in stock" or "It is available."
+
+6. **Conciseness:** Keep replies warm but brief. Use emojis sparingly (e.g., 😊). Avoid long explanations.
+
+7. **Answering Factual Questions:** If the customer asks about a specific attribute (size, color, battery life, etc.), use the Instagram descriptions to provide the correct answer. If the information is not available in either the product list or Instagram descriptions, say "I don't have that information at the moment. Would you like to ask something else?"
+
+Conversation so far:
+{history_str}
+Customer: {message}
+
+Analyze the customer's latest message and return JSON with:
+- intent: one of "interest", "order", "payment"
+- mood: one of "happy", "neutral", "sad"
+- reply: a friendly, concise response following the absolute rules above.
+
+Return ONLY valid JSON.
+"""
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.2)
+        )
+        result = _extract_json(response.text)
+        result.setdefault("intent", "interest")
+        result.setdefault("mood", "neutral")
+        result.setdefault("reply", "How can I help you today? 😊")
+        return result
+    except Exception as e:
+        print(f"Gemini intent classification failed: {e}, using fallback")
+        return _fallback_classify_intent(message)
+
+
+async def extract_product_details_from_caption(caption: str, product_name: str) -> dict:
+    """
+    Use Gemini to extract structured details about a product from its Instagram caption.
+    Returns a dictionary of extracted attributes.
+    """
+    if not client:
+        return {}
+    prompt = f"""
+You are an AI that extracts product details from Instagram captions.
+
+Product name: {product_name}
+Caption: "{caption}"
+
+Extract any descriptive details mentioned about the product, such as:
+- size/dimensions (e.g., "27-inch", "large")
+- color (e.g., "black", "white", "pink")
+- type/variant (e.g., "IPS panel", "mechanical", "wireless")
+- key features (e.g., "4K", "RGB", "1600 DPI")
+- specifications (e.g., "144Hz", "blue switches")
+
+Return a JSON object with keys like "size", "color", "type", "features" (list), "specs" (list), etc.
+Only include keys for which you found information. If no details found, return an empty object {{}}.
+
+Return ONLY valid JSON.
+"""
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(temperature=0.2)
+        )
+        raw = response.text.strip()
+        if raw.startswith("```json"):
+            raw = raw[7:-3]
+        elif raw.startswith("```"):
+            raw = raw[3:-3]
+        return json.loads(raw)
+    except Exception as e:
+        print(f"Error extracting details: {e}")
+        return {}
+
+def _fallback_classify_intent(message: str) -> dict:
+    """Simple fallback when Gemini is unavailable."""
+    message_lower = message.lower()
+    if any(word in message_lower for word in ["order", "buy", "want", "how to order"]):
+        intent = "order"
+    elif any(word in message_lower for word in ["pay", "paid", "payment", "transfer"]):
+        intent = "payment"
+    else:
+        intent = "interest"
+    if any(word in message_lower for word in ["thank", "great", "love", "sedap", "best"]):
+        mood = "happy"
+    elif any(word in message_lower for word in ["why", "how", "what", "when", "where"]):
+        mood = "neutral"
+    elif any(word in message_lower for word in ["expensive", "bad", "not good", "sad", "mahal"]):
+        mood = "sad"
+    else:
+        mood = "neutral"
+    if intent == "order":
+        reply = "Great! Could you please confirm the quantity and your delivery address?"
+    elif intent == "payment":
+        reply = "Thank you! You can pay via DuitNow or bank transfer. I'll send you the details."
+    else:
+        if mood == "happy":
+            reply = "We're glad you like our products! Would you like to place an order? 😊"
+        elif mood == "neutral":
+            reply = "Do you have any questions about our products? I'm here to help!"
+        else:
+            reply = "We're sorry to hear that. Could you share your feedback so we can improve?"
+    return {"intent": intent, "mood": mood, "reply": reply}
