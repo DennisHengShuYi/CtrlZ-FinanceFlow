@@ -1,4 +1,4 @@
-# FinanceFlow (Ctrl-Z) — SME Financial & Compliance Ecosystem
+# FinanceFlow Presented By CtrlZ
 
 ## 1. General Description
 
