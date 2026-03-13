@@ -77,8 +77,9 @@ npm run dev
 ### Step-by-Step Guide for Judges
 
 1.  **Dashboard Overview**: 
-    - Log in to see the **Finance Dashboard**. 
-    - Observe the **Cash on Hand**, **Expected Revenue**, and **Upcoming Bills** calculated dynamically from the ledger.
+    - Log in to see the **Finance Dashboard & Social Media Dashboard**. 
+    - Observe the **Cash on Hand**, **Expected Revenue**, and **Upcoming Bills** calculated automaticcaly from the ledger.
+    - Social Media Dashboard will observe activities from Instagram and WhatsApp to predict what is the most welcomed product in the store
 2.  **Fintech OS (The Core)**:
     - Navigate to **Fintech OS**.
     - **Readiness**: Adjust the "Proposed Loan" amount; watch the **Loan Readiness Score** update in real-time based on your debt-to-income ratios.
